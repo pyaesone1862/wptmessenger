@@ -1,0 +1,1673 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>WPT Messenger</title>
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-database-compat.js"></script>
+    <script type="text/javascript" src="https://cdn.jsdelivr.net/npm/@emailjs/browser@3/dist/email.min.js"></script>
+    <style>
+        :root { 
+            --tg-blue: #3390ec; 
+            --bg-gray: #f4f4f5; 
+            --sidebar-blue: #517da2; 
+            --error-red: #ff4757; 
+            --success-green: #2ecc71; 
+            --tg-header: #2481cc; 
+            --blue: #3498db; 
+            --dark: #2c3e50; 
+            --green: #2ecc71; 
+            --red: #e74c3c; 
+            --light-blue: #ebf5fb; 
+            --bg: #f0f3f5; 
+        }
+        
+        * { 
+            margin: 0; 
+            padding: 0; 
+            box-sizing: border-box; 
+            font-family: -apple-system, system-ui, Roboto, sans-serif; 
+            -webkit-tap-highlight-color: transparent;
+            -webkit-user-select: none;
+            -ms-user-select: none;
+            user-select: none;
+        }
+
+        body { background-color: var(--bg-gray); height: 100vh; width: 100vw; overflow: hidden; display: flex; justify-content: center; position: fixed; }
+        .mobile-frame { width: 100%; max-width: 500px; height: 100dvh; background: white; position: relative; overflow: hidden; display: flex; flex-direction: column; }
+        .screen { position: absolute; top: 0; left: 0; width: 100%; height: 100%; display: none; flex-direction: column; background: white; z-index: 10; }
+        .active { display: flex; }
+
+        /* --- Welcome Splash Screen CSS --- */
+        #scr-splash { background: white; justify-content: center; align-items: center; z-index: 20000; }
+        .orbit-container { position: relative; width: 250px; height: 250px; display: flex; justify-content: center; align-items: center; }
+        .logo-text { font-size: 50px; font-weight: 800; color: #333; letter-spacing: -2px; z-index: 10; }
+        .triangle { position: absolute; width: 40px; height: 40px; clip-path: polygon(50% 0%, 0% 100%, 100% 100%); animation: orbit 4s linear infinite; }
+        .t1 { background: #ff006e; box-shadow: 0 0 15px #ff006e; animation-delay: 0s; }
+        .t2 { background: #00f5d4; box-shadow: 0 0 15px #00f5d4; animation-delay: -1.33s; }
+        .t3 { background: #7b2cff; box-shadow: 0 0 15px #7b2cff; animation-delay: -2.66s; }
+        @keyframes orbit { from { transform: rotate(0deg) translateX(100px) rotate(0deg); } to { transform: rotate(360deg) translateX(100px) rotate(-360deg); } }
+
+        /* --- Main Feed Styling --- */
+        .main-header { display: flex; align-items: center; justify-content: space-between; padding: 12px 15px; background: white; border-bottom: 1px solid #f0f0f0; }
+        .main-title { color: var(--tg-blue); font-size: 24px; font-weight: bold; }
+        
+        .feed-fixed-header { background: white; padding: 15px; border-bottom: 1px solid #eee; z-index: 100; }
+        .feed-container { flex-grow: 1; overflow-y: auto; background: #f0f2f5; padding-bottom: 20px; }
+        
+        .post-composer { background: white; padding: 12px; border-radius: 8px; box-shadow: 0 1px 2px rgba(0,0,0,0.1); }
+        .post-input-container { display: flex; align-items: center; gap: 12px; padding: 5px 0; }
+        .post-avatar { width: 40px; height: 40px; border-radius: 50%; background: #e0e0e0; background-size: cover; background-position: center; flex-shrink: 0; cursor: pointer; }
+        .post-box-fake { flex-grow: 1; background: #f0f2f5; padding: 8px 15px; border-radius: 20px; color: #65676b; font-size: 15px; cursor: pointer; }
+
+        /* --- Post Item CSS --- */
+        .post-card { background: white; border-radius: 8px; padding: 12px; margin: 12px; box-shadow: 0 1px 2px rgba(0,0,0,0.1); position: relative; }
+        .post-card-header { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }
+        .post-user-name { font-weight: bold; font-size: 15px; }
+        .post-time { font-size: 12px; color: #65676b; }
+        .post-delete-btn { position: absolute; top: 12px; right: 12px; color: #ccc; cursor: pointer; font-size: 18px; z-index: 5; }
+        .post-content-text { font-size: 15px; margin-bottom: 10px; line-height: 1.4; color: #050505; -webkit-user-select: text; user-select: text; }
+        .post-content-img { width: calc(100% + 24px); margin-left: -12px; max-height: 400px; object-fit: cover; margin-bottom: 10px; display: block; }
+        
+        .post-actions { border-top: 1px solid #eee; padding-top: 10px; display: flex; gap: 15px; }
+        .action-item { display: flex; align-items: center; gap: 5px; color: #65676b; font-size: 13px; font-weight: 600; cursor: pointer; }
+        .action-item.liked { color: var(--tg-blue); }
+
+        .comment-box { margin-top: 10px; display: flex; gap: 8px; align-items: center; }
+        .comment-input { flex-grow: 1; background: #f0f2f5; border: none; padding: 8px 12px; border-radius: 15px; font-size: 13px; outline: none; }
+
+        #notification-panel { position: absolute; top: 0; right: -100%; width: 85%; height: 100%; background: white; z-index: 16000; transition: 0.4s; box-shadow: -5px 0 20px rgba(0,0,0,0.1); display: flex; flex-direction: column; }
+        #notification-panel.open { right: 0; }
+        .noti-item { padding: 12px 15px; border-bottom: 1px solid #f0f0f0; display: flex; align-items: center; gap: 10px; position: relative; }
+        .noti-del-btn { position: absolute; right: 15px; color: #ccc; cursor: pointer; font-size: 14px; }
+
+        .post-panel { position: absolute; bottom: -100%; left: 0; width: 100%; height: 90%; background: white; z-index: 15000; transition: 0.4s cubic-bezier(0.4, 0, 0.2, 1); border-radius: 25px 25px 0 0; box-shadow: 0 -5px 25px rgba(0,0,0,0.2); display: flex; flex-direction: column; padding: 20px; }
+        .post-panel.open { bottom: 0; }
+        .post-panel-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 20px; border-bottom: 1px solid #eee; padding-bottom: 15px; }
+        .post-btn { background: var(--tg-blue); color: white; border: none; padding: 8px 20px; border-radius: 8px; font-weight: bold; font-size: 15px; cursor: pointer; }
+        .post-btn:disabled { opacity: 0.5; }
+        .post-textarea { width: 100%; border: none; outline: none; font-size: 18px; resize: none; flex-grow: 1; -webkit-user-select: text; user-select: text; padding: 10px 0; }
+        .post-media-preview { width: 100%; max-height: 200px; border-radius: 12px; object-fit: cover; margin-top: 10px; display: none; }
+        .post-options { display: flex; align-items: center; gap: 15px; padding-top: 15px; border-top: 1px solid #eee; }
+        .opt-item { display: flex; align-items: center; gap: 8px; color: #65676b; font-size: 14px; font-weight: 500; cursor: pointer; }
+
+        /* --- Sidebar & Contacts CSS --- */
+        .sidebar-overlay { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.4); z-index: 4500; display: none; backdrop-filter: blur(2px); }
+        .sidebar { position: absolute; top: 0; left: -290px; width: 280px; height: 100%; background: white; z-index: 5000; transition: 0.3s; display: flex; flex-direction: column; overflow: hidden; border-radius: 0 25px 25px 0; }
+        .sidebar.open { left: 0; }
+        .sidebar-header { padding: 40px 20px 25px; background: var(--sidebar-blue); color: white; position: relative; flex-shrink: 0; }
+        
+        .bell-btn { position: absolute; top: 20px; right: 20px; font-size: 22px; cursor: pointer; z-index: 5001; transition: 0.3s; }
+        .active-bell { animation: bell-swing 1s ease-in-out infinite; transform-origin: top center; }
+        @keyframes bell-swing {
+            0% { transform: rotate(0); }
+            15% { transform: rotate(15deg); }
+            30% { transform: rotate(-15deg); }
+            45% { transform: rotate(10deg); }
+            60% { transform: rotate(-10deg); }
+            75% { transform: rotate(5deg); }
+            85% { transform: rotate(-5deg); }
+            100% { transform: rotate(0); }
+        }
+
+        .bell-badge { position: absolute; top: -5px; right: -5px; background: var(--error-red); color: white; font-size: 10px; padding: 2px 6px; border-radius: 10px; font-weight: bold; border: 2px solid var(--sidebar-blue); }
+        
+        /* Account Switching UI */
+        .account-list-container { margin-top: 15px; display: flex; flex-direction: column; gap: 10px; }
+        .account-pill { display: flex; align-items: center; gap: 10px; background: rgba(255,255,255,0.1); padding: 5px 10px; border-radius: 20px; cursor: pointer; border: 1px solid rgba(255,255,255,0.2); }
+        .mini-avatar { width: 24px; height: 24px; border-radius: 50%; background: #fff; background-size: cover; background-position: center; display: flex; align-items: center; justify-content: center; color: var(--sidebar-blue); font-size: 10px; font-weight: bold; }
+        .add-account-btn { display: inline-flex; align-items: center; gap: 5px; font-size: 12px; color: #fff; cursor: pointer; opacity: 0.9; margin-top: 5px; }
+
+        .sidebar-avatar { width: 70px; height: 70px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 28px; font-weight: bold; margin-bottom: 12px; cursor: pointer; background-size: cover; background-position: center; border: 3px solid var(--sidebar-blue); box-shadow: 0 4px 15px rgba(0,0,0,0.2); background-color: var(--sidebar-blue); }
+        .sidebar-content-wrapper { flex-grow: 1; overflow-y: auto; overflow-x: hidden; -webkit-overflow-scrolling: touch; }
+        
+        .contact-list { padding: 0 15px 20px; }
+        .contact-item { display: flex; align-items: center; gap: 12px; padding: 12px 0; cursor: pointer; border-bottom: 0.5px solid #f0f0f0; position: relative; }
+        .contact-avatar { width: 45px; height: 45px; border-radius: 50%; background-size: cover; background-position: center; flex-shrink: 0; display: flex; align-items: center; justify-content: center; color: white; font-weight: bold; background-color: #ccc; }
+        .contact-info { flex-grow: 1; }
+        .contact-info h4 { font-size: 15px; font-weight: 500; color: #000; }
+        .contact-info p { font-size: 13px; color: #707579; }
+        .remove-btn { color: #ccc; font-size: 14px; padding: 10px; cursor: pointer; transition: 0.2s; }
+        
+        .sidebar-footer { flex-shrink: 0; border-top: 1px solid #f0f0f0; background: white; }
+        .add-user-fab { position: absolute; bottom: 85px; right: 15px; width: 52px; height: 52px; background: var(--tg-blue); border-radius: 50%; display: flex; align-items: center; justify-content: center; color: white; font-size: 24px; z-index: 6000; animation: fab-pulse 2s infinite ease-in-out; }
+        @keyframes fab-pulse { 0% { transform: scale(1); } 50% { transform: scale(1.08); } 100% { transform: scale(1); } }
+        
+        .slide-panel { position: absolute; bottom: -100%; left: 0; width: 100%; height: 85%; background: white; z-index: 7000; transition: 0.4s; border-radius: 25px 25px 0 0; box-shadow: 0 -5px 20px rgba(0,0,0,0.1); padding: 20px; display: flex; flex-direction: column; }
+        .slide-panel.open { bottom: 0; }
+        .contact-input-plain { width: 100%; border: none; outline: none; font-size: 17px; background: transparent; padding: 5px 0; border-bottom: 1.5px solid #f0f0f0; margin-bottom: 25px; }
+
+        /* --- Chat Screen CSS --- */
+        .chat-screen { background: #abd1a6; background-image: url('https://i.pinimg.com/736x/8c/98/99/8c98994518b575cb0a1999da44207ad1.jpg'); background-size: cover; display: none; flex-direction: column; position: fixed; top: 0; left: 0; width: 100%; height: 100%; z-index: 8000; overflow: hidden; }
+        .chat-screen.active { display: flex; }
+        .chat-header { background: white; padding: 10px 15px; display: flex; align-items: center; gap: 15px; border-bottom: 1px solid rgba(0,0,0,0.05); position: absolute; top: 0; left: 0; width: 100%; height: 60px; z-index: 9500; }
+        .chat-messages-area { flex-grow: 1; padding: 15px; padding-top: 75px; display: flex; flex-direction: column; overflow-y: auto; scroll-behavior: smooth; }
+        .chat-input-bar { background: white; padding: 8px 12px; display: flex; align-items: center; gap: 12px; flex-shrink: 0; z-index: 9500; }
+        .chat-input-box { flex-grow: 1; background: #f4f4f5; border-radius: 25px; padding: 10px 15px; display: flex; align-items: center; gap: 10px; }
+        .chat-input-box input { flex-grow: 1; border: none; outline: none; background: transparent; font-size: 16px; -webkit-user-select: text; user-select: text; }
+
+        /* Message Bubbles */
+        .msg { 
+            max-width: 75%; 
+            padding: 8px 12px; 
+            border-radius: 18px; 
+            margin-bottom: 8px; 
+            font-size: 15px; 
+            position: relative; 
+            word-wrap: break-word; 
+            box-shadow: 0 1px 1px rgba(0,0,0,0.1); 
+            transition: transform 0.2s ease-out; 
+        }
+        .msg-sent { align-self: flex-end; background: #effdde; border-bottom-right-radius: 4px; color: #000; }
+        .msg-recv { align-self: flex-start; background: white; border-bottom-left-radius: 4px; color: #000; }
+        
+        .msg img { 
+            max-width: 100%; 
+            border-radius: 12px; 
+            display: block; 
+            margin-bottom: 5px; 
+        }
+
+        /* --- Friend Profile Panel Styling --- */
+        .friend-profile-panel { position: absolute; top: 0; right: -100%; width: 100%; height: 100%; background: white; z-index: 12000; transition: 0.4s cubic-bezier(0.4, 0, 0.2, 1); display: flex; flex-direction: column; overflow-y: auto; }
+        .friend-profile-panel.open { right: 0; }
+        .profile-cover { width: 100%; height: 320px; background-size: cover; background-position: center; position: relative; background-color: var(--tg-blue); }
+        .profile-cover-info { position: absolute; bottom: 0; left: 0; width: 100%; padding: 20px; background: linear-gradient(transparent, rgba(0,0,0,0.5)); color: white; }
+        .close-prof-btn { position: absolute; top: 20px; right: 20px; width: 35px; height: 35px; background: rgba(0,0,0,0.3); border-radius: 50%; display: flex; align-items: center; justify-content: center; color: white; cursor: pointer; }
+        .profile-content { padding: 20px; }
+        .profile-row { padding: 15px 0; border-bottom: 1px solid #f0f0f0; }
+        .profile-label { color: var(--tg-blue); font-size: 14px; font-weight: 500; margin-bottom: 4px; }
+        .profile-value { font-size: 16px; color: #000; }
+
+        /* --- Glassmorphism Theme Panel CSS (FIXED Z-INDEX) --- */
+        .theme-panel { 
+            position: fixed; 
+            top: 0; 
+            right: -100%; 
+            width: 85%; 
+            height: 100%; 
+            background: rgba(255, 255, 255, 0.85); 
+            backdrop-filter: blur(15px); 
+            -webkit-backdrop-filter: blur(15px);
+            z-index: 20000; 
+            transition: 0.5s cubic-bezier(0.4, 0, 0.2, 1); 
+            box-shadow: -10px 0 30px rgba(0,0,0,0.1); 
+            padding: 30px 20px; 
+            display: flex; 
+            flex-direction: column;
+            border-left: 1px solid rgba(255,255,255,0.3);
+        }
+        .theme-panel.open { right: 0; }
+        .theme-panel-header { display: flex; align-items: center; gap: 15px; margin-bottom: 40px; }
+        .theme-panel-header h3 { font-size: 22px; font-weight: 800; color: #333; }
+        
+        .color-card { 
+            background: white; 
+            padding: 25px; 
+            border-radius: 25px; 
+            box-shadow: 0 10px 20px rgba(0,0,0,0.05); 
+            text-align: center; 
+            margin-bottom: 30px;
+        }
+        .tap-color-circle { 
+            width: 80px; 
+            height: 80px; 
+            border-radius: 50%; 
+            margin: 20px auto; 
+            position: relative; 
+            box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+            border: 4px solid white;
+            transition: 0.3s;
+        }
+        .tap-color-circle input[type="color"] { 
+            position: absolute; 
+            top: 0; left: 0; 
+            width: 100%; height: 100%; 
+            cursor: pointer; 
+            opacity: 0;
+        }
+        .theme-preview-pill {
+            height: 8px;
+            width: 60px;
+            border-radius: 4px;
+            background: var(--tg-blue);
+            margin: 10px auto;
+        }
+        .reset-btn { 
+            background: #f0f0f0; 
+            color: #555;
+            border: none; 
+            padding: 16px; 
+            border-radius: 18px; 
+            font-weight: bold; 
+            cursor: pointer; 
+            width: 100%; 
+            margin-top: auto;
+            transition: 0.3s;
+        }
+        .reset-btn:active { transform: scale(0.95); }
+
+        /* --- Security Slide CSS --- */
+        #scr-security { background: var(--bg); overflow: hidden; }
+        .sec-views-trigger { position: absolute; top: 70px; left: 20px; background: var(--blue); color: white; border: none; padding: 12px 20px; border-radius: 15px; cursor: pointer; font-weight: bold; z-index: 100; box-shadow: 0 5px 15px rgba(52,152,219,0.3); font-size: 13px; }
+        .sec-history-trigger { position: absolute; top: 70px; right: 20px; background: var(--dark); color: white; border: none; padding: 12px 20px; border-radius: 15px; cursor: pointer; font-weight: bold; z-index: 100; font-size: 13px; }
+
+        .sec-card { background: white; width: 90%; max-width: 400px; padding: 35px; border-radius: 35px; box-shadow: 0 20px 50px rgba(0,0,0,0.05); text-align: center; margin: 130px auto 20px; position: relative; }
+        .sec-status-panel { background: #f8f9fa; padding: 15px; border-radius: 20px; border: 1px solid #eee; margin-bottom: 25px; transition: 0.3s; display: flex; align-items: center; justify-content: center; gap: 8px; }
+        .sec-indicator { width: 10px; height: 10px; border-radius: 50%; display: inline-block; background: #bbb; }
+        .sec-led-green { background: var(--green); box-shadow: 0 0 10px var(--green); }
+        .sec-led-red { background: var(--red); box-shadow: 0 0 10px var(--red); }
+
+        .sec-btn-grid { display: grid; grid-template-columns: 1fr; gap: 12px; }
+        .sec-up-btn { padding: 18px; border: none; border-radius: 20px; font-weight: bold; cursor: pointer; color: white; font-size: 15px; transition: 0.3s; width: 100%; }
+        .sec-btn-video { background: #ff4757; } .sec-btn-photo { background: #2ed573; } .sec-btn-file { background: #5352ed; }
+
+        .sec-loader-container { display: none; margin: 25px 0; flex-direction: column; align-items: center; gap: 15px; }
+        .sec-spinner { width: 45px; height: 45px; border: 5px solid #f3f3f3; border-top: 5px solid var(--blue); border-radius: 50%; animation: spin 1s linear infinite; }
+        .sec-stop-btn { background: var(--red); color: white; border: none; padding: 8px 15px; border-radius: 10px; cursor: pointer; font-weight: bold; font-size: 12px; }
+
+        .sec-quick-copy { display: none; margin-top: 20px; padding: 15px; background: var(--light-blue); border-radius: 20px; border: 1px dashed var(--blue); }
+        .sec-copy-now-btn { background: var(--dark); color: white; border: none; padding: 12px; width: 100%; border-radius: 15px; font-weight: bold; cursor: pointer; margin-top: 10px; }
+
+        .sec-panel { position: absolute; top: 60px; width: 100%; height: calc(100% - 60px); background: var(--light-blue); transition: 0.5s; z-index: 2000; padding: 25px; overflow-y: auto; box-sizing: border-box; display: none; }
+        .sec-panel.open { display: block; }
+        .sec-history-item { background: white; padding: 18px; border-radius: 25px; margin-bottom: 15px; border-left: 6px solid var(--blue); text-align: left; box-shadow: 0 4px 10px rgba(0,0,0,0.02); position: relative; }
+        .sec-history-actions { display: grid; grid-template-columns: repeat(4, 1fr); gap: 5px; margin-top: 12px; }
+        .sec-action-btn { border: none; padding: 8px 2px; border-radius: 10px; font-size: 10px; font-weight: bold; cursor: pointer; color: white; text-align: center; }
+        .sec-act-copy { background: var(--dark); } .sec-act-view { background: var(--blue); } .sec-act-save { background: var(--green); } .sec-act-del { background: var(--error-red); }
+        .sec-type-tag { padding: 2px 8px; border-radius: 8px; font-size: 10px; margin-right: 5px; font-weight: bold; color: white; }
+        
+        #scr-settings { z-index: 9000; overflow-y: auto; }
+        .settings-header { background: var(--tg-header); color: white; padding: 12px 16px; display: flex; align-items: center; justify-content: space-between; position: sticky; top: 0; z-index: 100; }
+        .profile-section { background: var(--tg-header); color: white; display: flex; flex-direction: column; align-items: center; padding: 10px 0 25px; text-align: center; }
+        .settings-avatar-big { width: 100px; height: 100px; background: #ff7675; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 36px; font-weight: 500; margin-bottom: 15px; border: 1px solid rgba(255,255,255,0.2); background-size: cover; background-position: center; }
+        .set-photo-bar { display: flex; align-items: center; padding: 14px 20px; gap: 25px; border-bottom: 8px solid #f1f1f1; cursor: pointer; color: var(--tg-blue); background: white; position: relative; z-index: 10; }
+        .settings-group-label { padding: 15px 20px 8px; color: var(--tg-blue); font-weight: 500; font-size: 15px; background: white; }
+        .settings-info-item { padding: 10px 20px; background: white; display: flex; flex-direction: column; border-bottom: 1px solid #eee; cursor: pointer; position: relative; z-index: 10; }
+        .info-main { font-size: 16px; color: #000; }
+        .info-sub { font-size: 13px; color: #707579; }
+        .settings-nav-item { padding: 14px 20px; display: flex; align-items: center; gap: 25px; background: white; border-bottom: 1px solid #eee; cursor: pointer; position: relative; z-index: 10; display: flex; align-items: center; }
+        
+        .nav-extra { 
+            margin-left: auto; 
+            color: var(--tg-blue); 
+            font-weight: 500;
+        }
+
+        .footer-pill { display: flex; align-items: center; gap: 15px; background: white; border: 1px solid #eee; padding: 8px 15px; border-radius: 30px; flex-grow: 1; box-shadow: 0 2px 5px rgba(0,0,0,0.05); }
+        .footer-item { display: flex; flex-direction: column; align-items: center; gap: 2px; font-size: 11px; color: #707579; cursor: pointer; flex: 1; }
+        .btn-start { background: var(--tg-blue); color: white; border: none; padding: 18px; border-radius: 12px; font-weight: bold; width: 85%; margin: 0 auto 50px; cursor: pointer; }
+        .btn-start:disabled { background: #ccc; opacity: 0.7; }
+        .input-box, .phone-wrapper, .gmail-box { border: 1px solid #dadce0; border-radius: 12px; padding: 14px 16px; margin-top: 20px; display: flex; align-items: center; }
+        input { border: none; outline: none; font-size: 17px; width: 100%; background: transparent; -webkit-user-select: text; user-select: text; }
+        .otp-box { width: 42px; height: 50px; border: 1.5px solid #dadce0; border-radius: 10px; text-align: center; font-size: 20px; margin: 0 4px; transition: 0.3s; }
+        .otp-box.error { border-color: var(--error-red); background-color: #fff1f1; }
+        .otp-box.success { border-color: var(--success-green); background-color: #f1fff1; }
+        
+        .custom-p-modal { display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.5); z-index:10000; justify-content:center; align-items:center; }
+        .custom-p-box { background:white; width:85%; border-radius:15px; padding:25px; box-shadow: 0 10px 25px rgba(0,0,0,0.2); }
+        .custom-p-input { width:100%; border:none; border-bottom:2px solid var(--tg-blue); padding:10px 0; font-size:17px; margin-bottom:25px; outline:none; -webkit-user-select: text; user-select: text; }
+        .picker-overlay { display: none; position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 11000; justify-content: center; align-items: flex-end; }
+        .picker-container { background: white; width: 100%; max-height: 70%; border-radius: 20px 20px 0 0; }
+        .country-item { padding: 15px 20px; border-bottom: 0.5px solid #eee; cursor: pointer; display: flex; gap: 10px; }
+        .loader-ring { width: 12px; height: 12px; border-radius: 50%; background: var(--tg-blue); box-shadow: 0 0 0 0 rgba(51, 144, 236, 0.7); animation: pulse-blue 1.5s infinite; display: none; margin: 0 5px; }
+        @keyframes pulse-blue { 0% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(51, 144, 236, 0.7); } 70% { transform: scale(1); box-shadow: 0 0 0 10px rgba(51, 144, 236, 0); } 100% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(51, 144, 236, 0); } }
+        .req-row { display: flex; align-items: center; gap: 12px; padding: 15px; border-bottom: 1px solid #f0f0f0; }
+        .req-actions { display: flex; gap: 8px; margin-left: auto; }
+        .req-btn { padding: 6px 12px; border-radius: 6px; border: none; font-size: 13px; font-weight: bold; cursor: pointer; }
+        
+        /* --- Privacy Policy Modal Styling --- */
+        .policy-modal { display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.6); z-index:15000; justify-content:center; align-items:center; }
+        .policy-box { background:white; width:90%; max-width:450px; height: 80vh; border-radius:20px; padding:25px; box-shadow: 0 15px 35px rgba(0,0,0,0.3); display: flex; flex-direction: column; }
+        .policy-content-scroll { flex-grow: 1; overflow-y: auto; text-align: left; padding: 10px 5px; margin: 15px 0; font-size: 13.5px; color: #444; line-height: 1.6; -webkit-user-select: text; user-select: text; }
+        .policy-content-scroll h4 { margin: 15px 0 8px; color: #222; border-bottom: 1px solid #eee; padding-bottom: 3px; }
+        .policy-btn { background: var(--tg-blue); color: white; border: none; padding: 14px 0; border-radius: 12px; cursor: pointer; font-weight: bold; width: 100%; transition: 0.3s; }
+        .policy-btn:active { transform: scale(0.98); opacity: 0.9; }
+        
+        .slider-container { flex-grow: 1; overflow: hidden; position: relative; margin-top: 60px; touch-action: pan-y; cursor: pointer; }
+        .slides-track { display: flex; height: 100%; transition: transform(0.4s) cubic-bezier(0.22, 1, 0.36, 1); width: 300%; }
+        .slide { width: 33.333%; display: flex; flex-direction: column; justify-content: center; align-items: center; text-align: center; padding: 40px; flex-shrink: 0; }
+        .dots { display: flex; justify-content: center; gap: 10px; margin-bottom: 40px; }
+        .dot { width: 7px; height: 7px; background: #c8c8c8; border-radius: 50%; transition: 0.3s; }
+        .dot.active { background: var(--tg-blue); transform: scale(1.3); }
+    </style>
+</head>
+<body oncontextmenu="return false;">
+
+    <div class="mobile-frame">
+        <div id="scr-splash" class="screen active">
+            <div class="orbit-container">
+                <div class="logo-text">WPT</div>
+                <div class="triangle t1"></div>
+                <div class="triangle t2"></div>
+                <div class="triangle t3"></div>
+            </div>
+            <div class="welcome-msg"></div>
+        </div>
+
+        <div id="scr-security" class="screen">
+            <div class="settings-header">
+                <div onclick="nav('scr-settings')" style="font-size:24px; cursor:pointer;">←</div>
+                <div style="font-weight:bold;" class="lang-sec-title">Security</div>
+                <div></div>
+            </div>
+            <button class="sec-views-trigger" onclick="toggleViewsSec()">👀 Views</button>
+            <button class="sec-history-trigger" onclick="toggleHistorySec()">📜 History</button>
+            <div class="sec-panel" id="viewsPanelSec">
+                <button onclick="toggleViewsSec()" style="background:var(--dark); color:white; border:none; padding:8px 15px; border-radius:10px; cursor:pointer; margin-bottom:20px;">⬅ Back</button>
+                <div style="text-align: center;">
+                    <h3>Media Viewer</h3>
+                    <input type="text" id="vLinkSec" style="width:100%; padding:15px; border-radius:15px; border:1px solid #ddd; outline:none; box-sizing:border-box; margin-top:10px;" placeholder="Link ထည့်ပါ...">
+                    <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-top:15px;">
+                        <button class="sec-up-btn sec-btn-video" style="padding:12px;" onclick="viewMediaSec()">🔍 View</button>
+                        <button class="sec-up-btn sec-btn-photo" style="background:var(--green); padding:12px;" onclick="downloadMediaFromInputSec()">⬇ Save</button>
+                    </div>
+                    <video id="videoDisplaySec" style="width:100%; border-radius:20px; margin-top:20px; display:none;" controls></video>
+                    <img id="imageDisplaySec" style="width:100%; border-radius:20px; margin-top:20px; display:none;" src="" alt="Preview">
+                </div>
+            </div>
+            <div class="sec-panel" id="sidePanelSec">
+                <button onclick="toggleHistorySec()" style="background:var(--dark); color:white; border:none; padding:8px 15px; border-radius:10px; cursor:pointer; margin-bottom:20px;">⬅ Back</button>
+                <h3 style="text-align: center; margin-top:0;">History</h3>
+                <div id="historyListSec"></div>
+            </div>
+            <div class="sec-card">
+                <h2 style="margin:0 0 15px 0;">🚀 Security 🚀</h2>
+                <div class="sec-status-panel">
+                    <span id="ledSec" class="sec-indicator"></span>
+                    <span id="infoTextSec" style="font-size: 13px; color: #666;">တင်လိုသည့်ဖိုင် ရွေးချယ်ပါ</span>
+                </div>
+                <div id="loaderAreaSec" class="sec-loader-container">
+                    <div class="sec-spinner"></div>
+                    <span style="font-size: 13px; color: var(--blue); font-weight: bold;">တင်နေပါသည်...</span>
+                    <button class="sec-stop-btn" onclick="stopUploadSec()">ဖျက်သိမ်းမည်</button>
+                </div>
+                <div id="quickCopyAreaSec" class="sec-quick-copy">
+                    <span style="font-size: 12px; color: var(--blue); font-weight: bold;">✅ တင်ပြီးပါပြီ!</span>
+                    <button class="sec-copy-now-btn" onclick="copyLastLinkSec()">📋 Copy Link Now</button>
+                </div>
+                <input type="file" id="videoInSec" accept="video/*" style="display:none;" onchange="handleFileSelectSec(this, 'Video')">
+                <input type="file" id="photoInSec" accept="image/*" style="display:none;" onchange="handleFileSelectSec(this, 'Photo')">
+                <input type="file" id="fileInSec" accept="*" style="display:none;" onchange="handleFileSelectSec(this, 'File')">
+                <div class="sec-btn-grid" id="mainBtnsSec">
+                    <button class="sec-up-btn sec-btn-video" onclick="document.getElementById('videoInSec').click()">🎬 Video တင်မည်</button>
+                    <button class="sec-up-btn sec-btn-photo" onclick="document.getElementById('photoInSec').click()">🖼️ Photo တင်မည်</button>
+                    <button class="sec-up-btn sec-btn-file" onclick="document.getElementById('fileInSec').click()">📄 File တင်မည်</button>
+                </div>
+            </div>
+        </div>
+
+        <div id="scr-welcome" class="screen">
+            <div class="main-header">
+                <div onclick="toggleSidebar()" style="font-size:24px; cursor:pointer;">☰</div>
+                <div class="main-title">WPT messenger</div>
+                <div style="font-size:22px; cursor:pointer; position:relative;" onclick="toggleNotiPanel(true)">
+                    <span id="main-bell-icon">🔔</span><span class="bell-badge" id="noti-count" style="display: none;">0</span>
+                </div>
+            </div>
+            <div class="feed-fixed-header">
+                <div class="post-composer">
+                    <div class="post-input-container">
+                        <div class="post-avatar" id="feed-avatar" onclick="nav('scr-settings')"></div>
+                        <div class="post-box-fake" id="lang-mind-fake" onclick="togglePostPanel(true)">What's on your mind?</div>
+                    </div>
+                </div>
+            </div>
+            <div class="feed-container" id="main-feed-area">
+                <div id="feed-posts-list"></div>
+            </div>
+
+            <div id="post-panel" class="post-panel">
+                <div class="post-panel-header">
+                    <span onclick="togglePostPanel(false)" style="cursor:pointer; color:#707579; font-size: 16px;">Cancel</span>
+                    <span style="font-weight: bold; font-size: 17px;" class="lang-create-post">Create Post</span>
+                    <button class="post-btn" id="main-post-btn" onclick="submitPost()">Post</button>
+                </div>
+                <div style="display:flex; align-items:center; gap:12px; margin-bottom:15px;">
+                    <div class="post-avatar" id="panel-post-avatar"></div>
+                    <div style="font-weight:bold;" id="panel-post-name">User Name</div>
+                </div>
+                <textarea class="post-textarea" id="post-text-input" placeholder="What's on your mind?"></textarea>
+                <img id="post-img-preview" class="post-media-preview">
+                <input type="file" id="post-img-input" style="display:none;" accept="image/*" onchange="previewPostImage(this)">
+                <div class="post-options">
+                    <div class="opt-item" onclick="document.getElementById('post-img-input').click()">🖼️ <span>Photo</span></div>
+                    <div class="opt-item">📍 <span>Location</span></div>
+                    <div class="opt-item">😊 <span>Feeling</span></div>
+                </div>
+            </div>
+
+            <div id="notification-panel">
+                <div class="main-header">
+                    <div style="font-weight:bold;" class="lang-noti-title">Notifications</div>
+                    <div onclick="toggleNotiPanel(false)" style="cursor:pointer;">✕</div>
+                </div>
+                <div id="noti-list-area" style="flex-grow:1; overflow-y:auto;"></div>
+            </div>
+        </div>
+
+        <div id="scr-chat" class="chat-screen">
+            <div class="chat-header">
+                <span style="font-size:24px; cursor:pointer;" onclick="closeChat()">←</span>
+                <div id="chat-header-avatar" style="width:40px; height:40px; border-radius:50%; background-size:cover; background-position:center; margin-left: 15px; cursor:pointer;" onclick="openFriendProfile()"></div>
+                <div style="margin-left: 15px; cursor:pointer; flex-grow:1;" onclick="openFriendProfile()">
+                    <h4 id="chat-header-name">Friend Name</h4>
+                    <p id="chat-header-status" style="font-size:13px; color:#707579;">online</p>
+                </div>
+            </div>
+            <div class="chat-messages-area" id="msg-container">
+                <div class="greeting-box" id="msg-greeting" style="text-align:center; padding-top:100px;">
+                    <h3 id="no-msg-yet">No messages here yet...</h3>
+                    <img src="https://i.pinimg.com/originals/1f/22/02/1f2202684877259021a83e020227181f.gif" width="120">
+                    <div style="font-weight:bold; font-size:20px; margin-top:10px;">HELLO</div>
+                </div>
+            </div>
+            <div class="chat-input-bar">
+                <div id="link-loader" class="loader-ring"></div>
+                <div class="chat-input-box">
+                    <input type="text" id="chat-input-field" placeholder="Message">
+                    <input type="file" id="chat-attach-input" style="display:none;" accept="image/*" onchange="handleAttachment(this)">
+                    <span onclick="document.getElementById('chat-attach-input').click()" style="cursor:pointer;">🖼️</span>
+                </div>
+                <span id="send-btn" style="color:var(--tg-blue); font-size:24px; transform:rotate(45deg); cursor:pointer;">➤</span>
+            </div>
+        </div>
+
+        <div id="scr-settings" class="screen">
+            <div class="settings-header">
+                <div onclick="nav('scr-welcome')" style="font-size:24px; cursor:pointer;">←</div>
+                <div style="display:flex; gap:20px; font-size:18px;">
+                    <span>🔳</span>
+                    <span>🔍</span>
+                    <span onclick="toggleThemePanel(true)" style="cursor:pointer;">⋮</span>
+                </div>
+            </div>
+            <div class="profile-section">
+                <div class="settings-avatar-big" id="settings-avatar">PS</div>
+                <div id="settings-name" style="font-size:22px; font-weight:500;">yourname</div>
+                <div style="font-size:14px; opacity:0.8;" id="status-online">online</div>
+            </div>
+            <div class="set-photo-bar" onclick="document.getElementById('img-input-settings').click()">
+                <div style="font-size:22px;">📷<span style="font-size:12px; vertical-align:middle; margin-left:-3px;">+</span></div>
+                <span id="set-photo-label" class="lang-set-photo">Set Profile Photo</span>
+                <input type="file" id="img-input-settings" accept="image/*" style="display:none;" onchange="uploadToBB(this)">
+            </div>
+            <div class="settings-group-label" id="acc-group-label">Account</div>
+            <div class="settings-info-item" style="cursor: default;">
+                <div class="info-main" id="settings-phone">+959 xxxxxxxxx</div>
+                <div class="info-sub" id="tap-change-phone">Phone number (Not changeable)</div>
+            </div>
+            <div class="settings-info-item" id="username-item" onclick="changeUsername()">
+                <div class="info-main" id="settings-username-val">WPT.me/yourname</div>
+                <div class="info-sub" id="username-label">Username</div>
+            </div>
+            <div class="settings-info-item" onclick="changeBio()">
+                <div class="info-main" id="settings-bio-val">Bio</div>
+                <div class="info-sub" id="bio-label-sub">Add a few words about yourself</div>
+            </div>
+            <div class="settings-info-item" id="two-step-item" onclick="openTwoStepSetup()">
+                <div class="info-main" id="two-step-label">Two Step</div>
+                <div class="info-sub" id="two-step-status">Tap to secure account with password</div>
+            </div>
+            <div style="height:8px; background:#f1f1f1;"></div>
+            <div class="settings-group-label">Settings</div>
+            <div class="settings-nav-item" onclick="nav('scr-security')"><div class="nav-icon">🔒</div><div class="nav-text" id="privacy-label">Privacy and Security</div></div>
+            <div class="settings-nav-item" id="lang-trigger" onclick="toggleLanguage()">
+                <div class="nav-icon">🌐</div>
+                <div class="nav-text" id="lang-label">Language</div>
+                <div class="nav-extra" id="current-lang">English</div>
+            </div>
+            <div class="settings-nav-item" id="theme-nav-trigger" onclick="toggleThemePanel(true)">
+                <div class="nav-icon">🎨</div>
+                <div class="nav-text">Theme Color</div>
+            </div>
+            <div class="settings-nav-item" onclick="showPrivacyPolicy()">
+                <div class="nav-icon">📜</div>
+                <div class="nav-text" id="policy-label">Privacy Policy</div>
+            </div>
+
+            <div id="theme-panel" class="theme-panel">
+                <div class="theme-panel-header">
+                    <span onclick="toggleThemePanel(false)" style="font-size: 24px; cursor: pointer;">←</span>
+                    <h3>WPT Theme</h3>
+                </div>
+                <div class="color-card">
+                    <p style="font-size: 14px; color: #777;">Tap to change interface color</p>
+                    <div class="tap-color-circle" id="theme-preview-circle" style="background: var(--tg-blue);">
+                        <input type="color" id="theme-color-input" oninput="applyThemeColor(this.value)" onchange="saveThemeColor(this.value)">
+                    </div>
+                    <div class="theme-preview-pill"></div>
+                    <p style="font-weight: bold; margin-top: 10px;">Interface Style</p>
+                </div>
+                <button class="reset-btn" onclick="resetThemeColor()">Reset to Default</button>
+            </div>
+        </div>
+
+        <div id="delete-modal" class="custom-p-modal">
+            <div class="custom-p-box">
+                <h4 id="del-modal-title">Delete this contact?</h4>
+                <p style="color:#777; font-size:14px; margin:10px 0 25px;" id="del-modal-sub">This will remove the friend and all chat history.</p>
+                <div style="display:flex; justify-content:flex-end; gap:25px; font-weight:bold; font-size: 14px;">
+                    <span onclick="closeDeleteModal()" style="cursor:pointer; color:#707579;" id="del-modal-cancel">CANCEL</span>
+                    <span id="confirm-delete-btn" style="cursor:pointer; color:var(--error-red);">DELETE</span>
+                </div>
+            </div>
+        </div>
+
+        <div id="friend-profile-panel" class="friend-profile-panel">
+            <div id="prof-cover" class="profile-cover">
+                <div class="close-prof-btn" onclick="toggleFriendProfile(false)">✕</div>
+                <div class="profile-cover-info">
+                    <h2 id="prof-name-title">Friend Name</h2>
+                    <p style="font-size:14px; opacity:0.8;">last seen recently</p>
+                </div>
+            </div>
+            <div class="profile-content">
+                <div class="profile-row">
+                    <div class="profile-label">Phone Number</div>
+                    <div id="prof-phone" class="profile-value">+959...</div>
+                </div>
+                <div class="profile-row">
+                    <div class="profile-label">Username</div>
+                    <div id="prof-username" class="profile-value">@username</div>
+                </div>
+                <div class="profile-row">
+                    <div class="profile-label">Bio</div>
+                    <div id="prof-bio" class="profile-value">No bio provided.</div>
+                </div>
+            </div>
+        </div>
+
+        <div id="custom-prompt-modal" class="custom-p-modal">
+            <div class="custom-p-box">
+                <h4 id="prompt-title">Title</h4>
+                <input type="text" id="prompt-input" class="custom-p-input">
+                <div style="display:flex; justify-content:flex-end; gap:25px; font-weight:bold; color:var(--tg-blue); font-size: 14px;">
+                    <span onclick="closeCustomPrompt()" style="cursor:pointer; color:#707579;" id="prompt-cancel">CANCEL</span>
+                    <span id="prompt-save-btn" onclick="saveCustomPrompt()" style="cursor:pointer;">OK</span>
+                </div>
+            </div>
+        </div>
+
+        <div id="toast" class="toast-notification"><div id="toast-icon" style="font-size: 20px;">📧</div><div class="toast-content"><div class="toast-title" id="toast-app-title">WPT Messenger</div><div class="toast-msg">Action Successful.</div></div></div>
+        
+        <div class="sidebar-overlay" id="side-overlay" onclick="toggleSidebar()"></div>
+        
+        <div class="sidebar" id="sidebar">
+            <div class="sidebar-header">
+                <div class="bell-btn" id="req-bell-icon" onclick="toggleRequestPanel(true)">🔔<span class="bell-badge" id="bell-count" style="display: none;">0</span></div>
+                <input type="file" id="img-input-side" accept="image/*" style="display:none;" onchange="uploadToBB(this)">
+                <div class="sidebar-avatar" id="side-avatar" onclick="document.getElementById('img-input-side').click()">P</div>
+                <div id="side-name" style="font-weight: bold; font-size: 17px; cursor: pointer;">yourname</div>
+                <div id="side-email" style="font-size: 13px; opacity: 0.9;">user@gmail.com</div>
+                <div id="account-switcher" class="account-list-container">
+                    <div id="other-accounts"></div>
+                    <div class="add-account-btn" onclick="addNewAccountAction()" id="side-add-acc">+ Add Account</div>
+                </div>
+            </div>
+            <div class="sidebar-content-wrapper">
+                <div style="padding: 10px 15px; color: var(--tg-blue); font-size: 14px; font-weight: 500;">Contacts</div>
+                <div class="contact-list" id="main-contact-list"></div>
+            </div>
+            <div id="request-panel" class="slide-panel">
+                <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom: 25px;">
+                    <span style="font-size: 20px; font-weight: bold;">Friend Requests</span>
+                    <span onclick="toggleRequestPanel(false)" style="cursor:pointer; color:#707579; font-size: 26px;">✕</span>
+                </div>
+                <div id="request-list-area" style="flex-grow:1; overflow-y:auto;"></div>
+            </div>
+            <div id="new-contact-panel" class="slide-panel">
+                <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom: 25px;">
+                    <span style="font-size: 20px; font-weight: bold;">New Contact</span>
+                    <span onclick="toggleNewContact(false)" style="cursor:pointer; color:#707579; font-size: 26px;">✕</span>
+                </div>
+                <input type="text" id="new-contact-name" class="contact-input-plain" placeholder="Name (required)">
+                <div style="display: flex; align-items: center; gap: 15px; border-bottom: 1.5px solid #f0f0f0; margin-bottom: 30px; padding: 5px 0;">
+                    <div onclick="openCountryPicker('new')" style="display: flex; align-items: center; gap: 5px; cursor: pointer;"><span id="new-flag">🇲🇲</span> <span id="new-code">+95</span></div>
+                    <input type="tel" id="new-contact-phone" style="flex-grow:1; border:none; outline:none; font-size:17px;" placeholder="9 xxxxxxxxx">
+                </div>
+                <button onclick="createNewContact()" style="background: var(--tg-blue); color:white; border:none; padding: 12px; border-radius: 8px; cursor: pointer; width: 100%; margin-top: auto; font-weight:bold;">Create Contact</button>
+            </div>
+            <div class="add-user-fab" onclick="toggleNewContact(true)">👤<span style="font-size: 14px; position: absolute; right: 10px; top: 12px;">+</span></div>
+            <div class="sidebar-footer" style="padding: 10px;">
+                <div class="footer-pill">
+                    <div class="footer-item" onclick="openSettings()"><i>⚙️</i><span>Settings</span></div>
+                    <div class="footer-item" onclick="logout()"><div id="mini-footer-avatar" style="width:24px; height:24px; border-radius:50%; background-size:cover; background-position:center; background-color:#ccc;"></div><span>LogOut</span></div>
+                </div>
+            </div>
+        </div>
+
+        <div id="scr-1" class="screen">
+            <div class="slider-container" id="slider-container">
+                <div class="slides-track" id="track">
+                    <div class="slide"><div class="icon-box">✈️</div><h2>WPT Messenger</h2><p id="slide1-sub">The world's fastest messaging app.</p></div>
+                    <div class="slide"><div class="icon-box">⚡</div><h2 id="slide2-title">Fast</h2><p id="slide2-sub">Instant messaging speed.</p></div>
+                    <div class="slide"><div class="icon-box">🛡️</div><h2 id="slide3-title">Secure</h2><p id="slide3-sub">Protected by encryption.</p></div>
+                </div>
+            </div>
+            <div class="dots"><div class="dot active"></div><div class="dot"></div><div class="dot"></div></div>
+            <button class="btn-start" onclick="nav('scr-phone')" id="start-btn">Start Messaging</button>
+        </div>
+
+        <div id="scr-phone" class="screen" style="padding: 80px 25px;">
+            <h2 style="text-align: center;" id="phone-scr-title">Your phone number</h2>
+            <div class="input-box" onclick="openCountryPicker('reg')"><span id="sel-flag">🇲🇲</span>&nbsp; <span id="sel-country" style="flex-grow:1;">Myanmar</span></div>
+            <div class="phone-wrapper"><span id="sel-code" style="font-weight:bold; margin-right:15px;">+95</span><input type="tel" id="phone-input" placeholder="9xxxxxxxxx" maxlength="10" oninput="checkPhoneLength()"></div>
+            <button id="phone-next-btn" class="btn-start" style="margin-top: 30px;" onclick="handlePhoneNext()" disabled>Next</button>
+        </div>
+
+        <div id="scr-otp" class="screen" style="padding: 80px 25px; text-align: center;">
+            <div id="otp-main-content">
+                <div style="font-size: 60px;">📧</div><h2 id="verify-gmail-title">Verify Gmail</h2>
+                <div id="add-account-btn-otp" style="color:var(--tg-blue); font-weight:bold; margin-top:30px; cursor:pointer;" onclick="showGmailInput()">+ Add Gmail account</div>
+                <div id="gmail-input-area" class="gmail-box" style="display:none; background: #f0f0f0;"><input type="email" id="gmail-username" placeholder="example@gmail.com"></div>
+                <button id="btn-sent-code" class="btn-start" style="margin-top:20px; display:none;" onclick="sendCode()">Sent Code 📤</button>
+                <div id="timer-display" style="margin-top: 10px; color: #707579; font-size: 14px; display: none;">Resend code in <span id="timer-count">60</span>s</div>
+                <div id="otp-inputs-area" style="display:none; justify-content:center; margin-top:30px;"><input type="tel" maxlength="1" class="otp-box"><input type="tel" maxlength="1" class="otp-box"><input type="tel" maxlength="1" class="otp-box"><input type="tel" maxlength="1" class="otp-box"><input type="tel" maxlength="1" class="otp-box"></div>
+            </div>
+            <div id="login-pass-panel" class="slide-panel">
+                 <div style="display:flex; align-items:center; justify-content:center; margin-bottom: 25px;"><span style="font-size: 20px; font-weight: bold;" id="twostep-title">Two-Step Verification</span></div>
+                 <p style="color:#707579; margin-bottom:20px;" id="twostep-sub">Your account is protected by an additional password.</p>
+                 <input type="password" id="login-pass-input" class="contact-input-plain" placeholder="Password">
+                 <div id="verify-gmail-link" onclick="handleGmailRecovery()" style="color: var(--error-red); font-size: 12px; cursor: pointer; margin-top: -15px; margin-bottom: 25px; text-align: left;">Verify with Gmail Account?</div>
+                 <button onclick="verifyTwoStepLogin()" style="background: var(--tg-blue); color:white; border:none; padding: 15px; border-radius: 12px; cursor: pointer; width: 100%; font-weight:bold;" id="twostep-submit">Submit</button>
+            </div>
+        </div>
+
+        <div id="nameModalSec" class="custom-p-modal">
+            <div class="custom-p-box">
+                <h3 style="margin:0;">ဖိုင်အမည်ပေးပါ</h3>
+                <input type="text" id="popNameSec" class="custom-p-input" placeholder="ဥပမာ- My Media">
+                <button onclick="confirmAndUploadSec()" style="background:var(--blue); color:white; border:none; padding:15px; border-radius:15px; width:100%; font-weight:bold; cursor:pointer;">တင်မည်</button>
+            </div>
+        </div>
+
+        <div id="policy-custom-modal" class="policy-modal">
+            <div class="policy-box">
+                <h3 style="text-align: center; font-weight: 800;">Privacy Policy</h3>
+                <div class="policy-content-scroll">
+                    <p style="font-weight: bold; color: var(--tg-blue);">Effective Date: February 15, 2026</p>
+                    <p>Welcome to WPT Messenger. Your privacy is critically important to us. This Privacy Policy explains how we collect, use, disclose, and safeguard your information when you use our mobile application and services.</p>
+                    <p>Please read this privacy policy carefully. If you do not agree with the terms of this privacy policy, please do not access the application.</p>
+                    
+                    <h4>1. Information We Collect</h4>
+                    <p>We may collect information about you in a variety of ways. The information we may collect via the Application depends on the content and materials you use, and includes:</p>
+                    <p><b>Personal Data:</b> Demographic and other personally identifiable information (such as your name, email address, and phone number) that you voluntarily give to us when you register with the Application. This includes Firebase authentication data (Gmail OTP, Phone OTP).</p>
+                    <p><b>Derivative Data:</b> Information our servers automatically collect when you access the Application, such as your native actions that are integral to the Application, including liking, re-posting, or replying to a post, as well as other interactions with the Application and other users via server log files.</p>
+                    <p><b>Financial Data:</b> We do not store financial information. All transactions (if any) are processed through secure third-party processors.</p>
+                    <p><b>Mobile Device Access:</b> We may request access or permission to certain features from your mobile device, including your mobile device’s storage, camera, and contacts.</p>
+
+                    <h4>2. Use of Your Information</h4>
+                    <p>Having accurate information about you permits us to provide you with a smooth, efficient, and customized experience. Specifically, we may use information collected about you via the Application to:</p>
+                    <ul>
+                        <li>Create and manage your account.</li>
+                        <li>Enable real-time communication via Supabase and Firebase.</li>
+                        <li>Process your social media-style posts (World People feature) and interactions.</li>
+                        <li>Assist law enforcement and respond to subpoenas.</li>
+                        <li>Monitor and analyze usage and trends to improve your experience with the Application.</li>
+                        <li>Prevent fraudulent transactions, monitor against theft, and protect against criminal activity.</li>
+                    </ul>
+
+                    <h4>3. Disclosure of Your Information</h4>
+                    <p>We may share information we have collected about you in certain situations. Your information may be disclosed as follows:</p>
+                    <p><b>By Law or to Protect Rights:</b> If we believe the release of information about you is necessary to respond to legal process, to investigate or remedy potential violations of our policies, or to protect the rights, property, and safety of others.</p>
+                    <p><b>Third-Party Service Providers:</b> We may share your information with third parties that perform services for us or on our behalf, including data analysis, email delivery (EmailJS), hosting services, and customer service.</p>
+                    <p><b>Interactions with Other Users:</b> If you interact with other users of the Application, those users may see your name, profile photo, and descriptions of your activity, including sending invitations to other users, chatting with other users, and liking posts.</p>
+
+                    <h4>4. Security of Your Information</h4>
+                    <p>We use administrative, technical, and physical security measures to help protect your personal information. While we have taken reasonable steps to secure the personal information you provide to us, please be aware that despite our efforts, no security measures are perfect or impenetrable, and no method of data transmission can be guaranteed against any type of misuse.</p>
+
+                    <h4>5. Policy for Children</h4>
+                    <p>We do not knowingly solicit information from or market to children under the age of 13. If you become aware of any data we have collected from children under age 13, please contact us using the contact information provided below.</p>
+
+                    <h4>6. User Rights & Account Deletion</h4>
+                    <p>You may at any time review or change the information in your account or terminate your account by:</p>
+                    <ul>
+                        <li>Logging into your account settings and updating your account.</li>
+                        <li>Contacting us using the contact information provided below.</li>
+                    </ul>
+                    <p>Upon your request to terminate your account, we will deactivate or delete your account and information from our active databases.</p>
+
+                    <h4>7. Contact Us</h4>
+                    <p>If you have questions or comments about this Privacy Policy, please contact us at:</p>
+                    <p><b>Email:</b> paaung137@gmail.com</p>
+                    <p><b>Website:</b> <a href="https://www.facebook.com/share/1GDkeHadD7ad1" target="_blank" style="color:var(--tg-blue);">WPT Community</a></p>
+                </div>
+                <button class="policy-btn" onclick="closePrivacyModal()">Accept & Close</button>
+            </div>
+        </div>
+
+        <div class="picker-overlay" id="picker-overlay" onclick="closeCountryPicker()"><div class="picker-container" id="country-list-div" onclick="event.stopPropagation()"></div></div>
+        <div id="overlay" style="display:none; position:absolute; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.4); z-index:11000; justify-content:center; align-items:center;"><div style="background:white; width:85%; padding:25px; border-radius:15px;"><h4>Correct number?</h4><p id="confirm-num"></p><div style="display:flex; justify-content:flex-end; gap:20px; font-weight:bold; color:var(--tg-blue);"><span onclick="document.getElementById('overlay').style.display='none'" style="color:#999; cursor:pointer;">EDIT</span><span onclick="confirmPhoneFinal()" style="pointer-events: auto; cursor:pointer;">YES</span></div></div></div>
+    </div>
+
+    <script>
+        const firebaseConfig = { apiKey: "AIzaSyAilwZ1Xemt93Ug668lRAUch6aG9Mr-zhw", authDomain: "wpt-project-274f8.firebaseapp.com", databaseURL: "https://wpt-project-274f8-default-rtdb.firebaseio.com", projectId: "wpt-project-274f8", storageBucket: "wpt-project-274f8.firebasestorage.app", messagingSenderId: "691993680102", appId: "1:691993680102:web:cc58ebefe4255af00c8327" };
+        firebase.initializeApp(firebaseConfig);
+        const db = firebase.firestore();
+        const rdb = firebase.database();
+        (function(){ emailjs.init("Dl-GXJan_Ga9bVtB1"); })();
+
+        let curIdx = 0, generatedOTP = "", currentPickerTarget = 'reg', currentUserEmail = "", pendingPhone = "", userTwoStepPass = "", currentChatFriend = null, unsubscribeMsg = null, currentPromptType = "";
+        let deleteTarget = { cid: '', phone: '' };
+        let currentLang = "English";
+        let otpTimer = null;
+
+        const countries = [ { name: "Myanmar", flag: "🇲🇲", code: "+95" }, { name: "Thailand", flag: "🇹🇭", code: "+66" }, { name: "USA", flag: "🇺🇸", code: "+1" } ];
+
+        function nav(id) { document.querySelectorAll('.screen').forEach(s => s.classList.remove('active')); document.getElementById(id).classList.add('active'); }
+        function toggleSidebar() { const sb = document.getElementById('sidebar'); sb.classList.toggle('open'); document.getElementById('side-overlay').style.display = sb.classList.contains('open') ? 'block' : 'none'; }
+        function toggleNewContact(show) { document.getElementById('new-contact-panel').classList.toggle('open', show); }
+        
+        async function toggleRequestPanel(show) { 
+            document.getElementById('request-panel').classList.toggle('open', show); 
+            if(show) {
+                loadRequests(); 
+                const requests = await db.collection("users").doc(currentUserEmail).collection("requests").where("read", "==", false).get();
+                if(!requests.empty){
+                    const batch = db.batch();
+                    requests.forEach(doc => batch.update(doc.ref, { read: true }));
+                    await batch.commit();
+                }
+            }
+        }
+        
+        function openSettings() { toggleSidebar(); nav('scr-settings'); }
+        function closeChat() { document.getElementById('scr-chat').classList.remove('active'); if(unsubscribeMsg) unsubscribeMsg(); }
+
+        const translations = {
+            English: { mind: "What's on your mind?", create: "Create Post", noti: "Notifications", security: "Security", set_photo: "Set Profile Photo", lang_name: "English", welcome_title: "WPT messenger", settings_title: "Settings", privacy_title: "Privacy and Security", policy_title: "Privacy Policy", lang_label: "Language" },
+            Myanmar: { mind: "ဘာတွေတွေးနေလဲ?", create: "ပို့စ်တင်မည်", noti: "အသိပေးချက်များ", security: "လုံုံခြုံရေး", set_photo: "ပရိုဖိုင်ပုံတင်မည်", lang_name: "မြန်မာစာ", welcome_title: "WPT မက်ဆင်ဂျာ", settings_title: "ဆက်တင်များ", privacy_title: "ကိုယ်ရေးလုံခြုံမှုနှင့် လုံခြုံရေး", policy_title: "စည်းမျဉ်းစည်းကမ်းများ", lang_label: "ဘာသာစကား" }
+        };
+
+        function toggleLanguage() {
+            currentLang = (currentLang === "English") ? "Myanmar" : "English";
+            const t = translations[currentLang];
+            document.getElementById('current-lang').innerText = t.lang_name;
+            document.getElementById('lang-mind-fake').innerText = t.mind;
+            document.querySelectorAll('.lang-create-post').forEach(el => el.innerText = t.create);
+            document.querySelectorAll('.lang-noti-title').forEach(el => el.innerText = t.noti);
+            document.querySelectorAll('.lang-sec-title').forEach(el => el.innerText = t.security);
+            document.querySelectorAll('.lang-set-photo').forEach(el => el.innerText = t.set_photo);
+            document.querySelector('.main-title').innerText = t.welcome_title;
+            document.getElementById('privacy-label').innerText = t.privacy_title;
+            document.getElementById('policy-label').innerText = t.policy_title;
+            document.getElementById('lang-label').innerText = t.lang_label;
+            showToast("🌐", (currentLang === "English" ? "Language changed" : "ဘာသာစကားပြောင်းလဲပြီးပါပြီ"));
+        }
+
+        function togglePostPanel(show) { 
+            const panel = document.getElementById('post-panel');
+            panel.classList.toggle('open', show);
+            if(!show) {
+                document.getElementById('post-text-input').value = '';
+                const img = document.getElementById('post-img-preview');
+                img.src = ''; img.style.display = 'none';
+                document.getElementById('post-img-input').value = '';
+            }
+        }
+
+        function previewPostImage(input) {
+            const file = input.files[0];
+            if (file) {
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    const img = document.getElementById('post-img-preview');
+                    img.src = e.target.result;
+                    img.style.display = 'block';
+                }
+                reader.readAsDataURL(file);
+            }
+        }
+
+        async function submitPost() {
+            const text = document.getElementById('post-text-input').value.trim();
+            const imgInput = document.getElementById('post-img-input');
+            if(!text && !imgInput.files[0]) return;
+            document.getElementById('main-post-btn').disabled = true;
+            showToast("⌛", "Uploading Post...");
+            let imageUrl = "";
+            if(imgInput.files[0]) {
+                const fd = new FormData();
+                fd.append('image', imgInput.files[0]);
+                try {
+                    const res = await fetch('https://api.imgbb.com/1/upload?key=c8f69c1b706d66b98cf6d8bdd4f6fe9a', { method: 'POST', body: fd });
+                    const r = await res.json();
+                    if(r.success) imageUrl = r.data.url;
+                } catch(e) { console.error("Img Upload Fail"); }
+            }
+            const userDataSnap = await db.collection("users").doc(currentUserEmail).get();
+            const userData = userDataSnap.data();
+            const postData = {
+                authorEmail: currentUserEmail,
+                authorName: userData.username || "User",
+                authorAvatar: userData.profile_url || "",
+                text: text,
+                image: imageUrl,
+                timestamp: firebase.firestore.FieldValue.serverTimestamp(),
+                likes: []
+            };
+            await db.collection("posts").add(postData);
+            document.getElementById('main-post-btn').disabled = false;
+            togglePostPanel(false);
+            showToast("✅", "Post Shared!");
+        }
+
+        function listenToPosts() {
+            db.collection("posts").orderBy("timestamp", "desc").onSnapshot(snap => {
+                const list = document.getElementById('feed-posts-list');
+                list.innerHTML = '';
+                snap.forEach(doc => {
+                    const p = doc.data();
+                    const postId = doc.id;
+                    const time = p.timestamp ? new Date(p.timestamp.toDate()).toLocaleString() : "Just now";
+                    const isLiked = p.likes && p.likes.includes(currentUserEmail);
+                    const isMyPost = p.authorEmail === currentUserEmail;
+                    const card = document.createElement('div');
+                    card.className = 'post-card';
+                    let delBtn = isMyPost ? `<div class="post-delete-btn" onclick="deletePost('${postId}')">✕</div>` : '';
+                    let avatarHTML = p.authorAvatar ? `<div class="post-avatar" style="background-image:url('${p.authorAvatar}')"></div>` : `<div class="post-avatar" style="background-color:var(--tg-blue); display:flex; align-items:center; justify-content:center; color:white; font-weight:bold;">${p.authorName[0].toUpperCase()}</div>`;
+                    let imageHTML = p.image ? `<img src="${p.image}" class="post-content-img" onclick="window.open('${p.image}')">` : '';
+                    card.innerHTML = `
+                        ${delBtn}
+                        <div class="post-card-header">
+                            ${avatarHTML}
+                            <div>
+                                <div class="post-user-name">${p.authorName}</div>
+                                <div class="post-time">${time}</div>
+                            </div>
+                        </div>
+                        <div class="post-content-text">${p.text}</div>
+                        ${imageHTML}
+                        <div class="post-actions">
+                            <div class="action-item ${isLiked ? 'liked' : ''}" onclick="toggleLike('${postId}', ${isLiked}, '${p.authorEmail}')">
+                                <span>${isLiked ? '💙' : '🤍'}</span> <span>${p.likes ? p.likes.length : 0} Likes</span>
+                            </div>
+                            <div class="action-item" onclick="focusComment('${postId}')">💬 Comment</div>
+                        </div>
+                        <div class="comment-box">
+                            <input type="text" class="comment-input" id="cmt-in-${postId}" placeholder="Write a comment..." onkeydown="if(event.key==='Enter') submitComment('${postId}', this.value, '${p.authorEmail}')">
+                        </div>
+                    `;
+                    list.appendChild(card);
+                });
+            });
+        }
+
+        async function deletePost(pid) {
+            try {
+                await db.collection("posts").doc(pid).delete();
+                showToast("🗑️", (currentLang === "English" ? "Post deleted" : "ပို့စ်ဖျက်လိုက်ပါပြီ"));
+            } catch (e) {
+                showToast("❌", "Delete Failed");
+            }
+        }
+
+        async function toggleLike(pid, alreadyLiked, authorEmail) {
+            const postRef = db.collection("posts").doc(pid);
+            if(alreadyLiked) {
+                await postRef.update({ likes: firebase.firestore.FieldValue.arrayRemove(currentUserEmail) });
+            } else {
+                await postRef.update({ likes: firebase.firestore.FieldValue.arrayUnion(currentUserEmail) });
+                if(authorEmail !== currentUserEmail) {
+                    sendNoti(authorEmail, "reacted to your post 💙");
+                }
+            }
+        }
+
+        async function submitComment(pid, text, authorEmail) {
+            if(!text.trim()) return;
+            const input = document.getElementById(`cmt-in-${pid}`);
+            input.value = '';
+            showToast("✅", "Comment sent");
+            if(authorEmail !== currentUserEmail) {
+                sendNoti(authorEmail, `commented: "${text.substring(0,20)}..."`);
+            }
+        }
+
+        async function sendNoti(targetEmail, message) {
+            const mySnap = await db.collection("users").doc(currentUserEmail).get();
+            const myData = mySnap.data();
+            await db.collection("users").doc(targetEmail).collection("notifications").add({
+                fromName: myData.username,
+                fromAvatar: myData.profile_url || "",
+                message: message,
+                timestamp: firebase.firestore.FieldValue.serverTimestamp(),
+                read: false
+            });
+        }
+
+        async function toggleNotiPanel(show) {
+            document.getElementById('notification-panel').classList.toggle('open', show);
+            if(show) {
+                loadNotifications();
+                const notis = await db.collection("users").doc(currentUserEmail).collection("notifications").where("read", "==", false).get();
+                if(!notis.empty){
+                    const batch = db.batch();
+                    notis.forEach(doc => batch.update(doc.ref, { read: true }));
+                    await batch.commit();
+                }
+            }
+        }
+
+        function loadNotifications() {
+            const list = document.getElementById('noti-list-area');
+            db.collection("users").doc(currentUserEmail).collection("notifications").orderBy("timestamp", "desc").onSnapshot(snap => {
+                list.innerHTML = '';
+                if(snap.empty) {
+                    list.innerHTML = '<p style="text-align:center; color:#999; margin-top:20px;">No notifications</p>';
+                    return;
+                }
+                snap.forEach(doc => {
+                    const n = doc.data();
+                    const nid = doc.id;
+                    const item = document.createElement('div');
+                    item.className = 'noti-item';
+                    let avStyle = n.fromAvatar ? `background-image:url('${n.fromAvatar}')` : `background-color:var(--tg-blue)`;
+                    let avText = n.fromAvatar ? '' : n.fromName[0].toUpperCase();
+                    item.innerHTML = `
+                        <div class="post-avatar" style="${avStyle}">${avText}</div>
+                        <div style="font-size:14px; flex-grow:1;"><b>${n.fromName}</b> ${n.message}</div>
+                        <div class="noti-del-btn" onclick="deleteNotification('${nid}')">✕</div>
+                    `;
+                    list.appendChild(item);
+                });
+            });
+        }
+
+        async function deleteNotification(nid) {
+            try {
+                await db.collection("users").doc(currentUserEmail).collection("notifications").doc(nid).delete();
+            } catch (e) {
+                console.error("Noti Delete Error");
+            }
+        }
+
+        function listenToNotiCount() {
+            db.collection("users").doc(currentUserEmail).collection("notifications").where("read", "==", false).onSnapshot(snap => {
+                const badge = document.getElementById('noti-count');
+                const bell = document.getElementById('main-bell-icon');
+                if(snap.size > 0) {
+                    badge.innerText = snap.size;
+                    badge.style.display = 'block';
+                    bell.classList.add('active-bell');
+                } else {
+                    badge.style.display = 'none';
+                    bell.classList.remove('active-bell');
+                }
+            });
+        }
+
+        function toggleFriendProfile(show) { 
+            document.getElementById('friend-profile-panel').classList.toggle('open', show); 
+        }
+
+        async function openFriendProfile() {
+            if(!currentChatFriend) return;
+            showToast("⌛", "Loading profile...");
+            const snap = await db.collection("users").where("phone", "==", currentChatFriend).limit(1).get();
+            if(!snap.empty) {
+                const d = snap.docs[0].data();
+                document.getElementById('prof-name-title').innerText = d.username || "User";
+                document.getElementById('prof-phone').innerText = d.phone || "-";
+                document.getElementById('prof-username').innerText = "@" + (d.username || "none");
+                document.getElementById('prof-bio').innerText = d.bio || "Hey there! I am using WPT.";
+                const cover = document.getElementById('prof-cover');
+                if(d.profile_url) {
+                    cover.style.backgroundImage = `url('${d.profile_url}')`;
+                } else {
+                    cover.style.backgroundImage = 'none';
+                    cover.style.backgroundColor = 'var(--tg-blue)';
+                }
+                toggleFriendProfile(true);
+            } else {
+                showToast("⚠️", "Profile not found");
+            }
+        }
+
+        function addNewAccountAction() { toggleSidebar(); nav('scr-phone'); }
+
+        async function switchAccount(email) {
+            currentUserEmail = email;
+            localStorage.setItem("wpt_logged_in", email);
+            const doc = await db.collection("users").doc(email).get();
+            if(doc.exists) {
+                const data = doc.data();
+                updateAllUI(data); loadContacts(); listenToRequests(); refreshAccountList(); listenToPosts(); listenToNotiCount();
+                showToast("🔄", "Switched Account");
+                toggleSidebar(); nav('scr-welcome');
+            }
+        }
+
+        function refreshAccountList() {
+            const container = document.getElementById('other-accounts'); container.innerHTML = '';
+            let accounts = JSON.parse(localStorage.getItem("wpt_accounts") || "[]");
+            
+            const uniqueAccounts = accounts.reduce((acc, current) => {
+                const x = acc.find(item => item.email === current.email);
+                if (!x) return acc.concat([current]); else return acc;
+            }, []);
+
+            uniqueAccounts.filter(acc => acc.email !== currentUserEmail).forEach(acc => {
+                const pill = document.createElement('div'); pill.className = 'account-pill';
+                pill.onclick = () => switchAccount(acc.email);
+                let firstLetter = (acc.username && acc.username.length > 0) ? acc.username[0].toUpperCase() : 'U';
+                let avatarHTML = acc.profile_url ? `<div class="mini-avatar" style="background-image:url('${acc.profile_url}')"></div>` : `<div class="mini-avatar">${firstLetter}</div>`;
+                pill.innerHTML = `${avatarHTML} <span style="font-size:13px; font-weight:500;">${acc.username || 'User'}</span>`;
+                container.appendChild(pill);
+            });
+            localStorage.setItem("wpt_accounts", JSON.stringify(uniqueAccounts));
+        }
+
+        function saveAccountToLocal(data) {
+            let accounts = JSON.parse(localStorage.getItem("wpt_accounts") || "[]");
+            const index = accounts.findIndex(acc => acc.email === data.gmail);
+            const accountData = { email: data.gmail, username: data.username, profile_url: data.profile_url || "" };
+            if (index > -1) accounts[index] = accountData; else accounts.push(accountData);
+            localStorage.setItem("wpt_accounts", JSON.stringify(accounts));
+        }
+
+        function checkPhoneLength() { document.getElementById('phone-next-btn').disabled = document.getElementById('phone-input').value.length < 9; }
+        function handlePhoneNext() { pendingPhone = document.getElementById('sel-code').innerText + document.getElementById('phone-input').value; document.getElementById('confirm-num').innerText = pendingPhone; document.getElementById('overlay').style.display = 'flex'; }
+        
+        async function confirmPhoneFinal() {
+            document.getElementById('overlay').style.display = 'none';
+            const q = await db.collection("users").where("phone", "==", pendingPhone).get();
+            if(!q.empty) {
+                const ud = q.docs[0].data(); currentUserEmail = q.docs[0].id; userTwoStepPass = ud.two_step || "";
+                if(userTwoStepPass) { nav('scr-otp'); document.getElementById('otp-main-content').style.opacity = '0'; document.getElementById('login-pass-panel').classList.add('open'); document.getElementById('gmail-username').value = ud.gmail; }
+                else { document.getElementById('otp-main-content').style.opacity = '1'; goToOtp(ud.gmail); }
+            } else { userTwoStepPass = ""; document.getElementById('otp-main-content').style.opacity = '1'; goToOtp(null); }
+        }
+
+        function verifyTwoStepLogin() {
+            const input = document.getElementById('login-pass-input').value;
+            if(input === userTwoStepPass) { document.getElementById('login-pass-panel').classList.remove('open'); loginDone(currentUserEmail); showToast("🔓", "Welcome Back!"); }
+            else { showToast("❌", "Wrong Password"); }
+        }
+
+        function handleGmailRecovery() { document.getElementById('login-pass-panel').classList.remove('open'); document.getElementById('otp-main-content').style.opacity = '1'; const existingGmail = document.getElementById('gmail-username').value; goToOtp(existingGmail); }
+        function goToOtp(existingGmail) { const gf = document.getElementById('gmail-username'); if(existingGmail) { gf.value = existingGmail; gf.disabled = true; document.getElementById('gmail-input-area').style.background = "#e0e0e0"; } else { gf.value = ""; gf.disabled = false; document.getElementById('gmail-input-area').style.background = "#f0f0f0"; } showGmailInput(); nav('scr-otp'); }
+        function showGmailInput() { document.getElementById('add-account-btn-otp').style.display = 'none'; document.getElementById('gmail-input-area').style.display = 'flex'; document.getElementById('btn-sent-code').style.display = 'block'; }
+        
+        function startTimer() {
+            let timeLeft = 60;
+            const btn = document.getElementById('btn-sent-code');
+            const timerDiv = document.getElementById('timer-display');
+            const timerCount = document.getElementById('timer-count');
+            btn.disabled = true;
+            btn.style.opacity = "0.5";
+            timerDiv.style.display = "block";
+            if(otpTimer) clearInterval(otpTimer);
+            otpTimer = setInterval(() => {
+                timeLeft--;
+                timerCount.innerText = timeLeft;
+                if(timeLeft <= 0) {
+                    clearInterval(otpTimer);
+                    btn.disabled = false;
+                    btn.style.opacity = "1";
+                    btn.innerText = "Resend Code 📤";
+                    timerDiv.style.display = "none";
+                }
+            }, 1000);
+        }
+
+        function sendCode() {
+            const email = document.getElementById('gmail-username').value; 
+            if(!email.includes('@')) return;
+
+            // INSTANT RESPONSE: Start timer and show inputs immediately
+            generatedOTP = Math.floor(10000 + Math.random() * 90000).toString(); 
+            showToast("📧", "OTP sent.");
+            document.querySelectorAll('.otp-box').forEach(b => {
+                b.value = '';
+                b.classList.remove('error', 'success');
+            });
+            document.getElementById('otp-inputs-area').style.display = 'flex';
+            startTimer();
+
+            // Background sending
+            emailjs.send("service_8eojf9a", "template_h1wendu", { to_email: email, otp_code: generatedOTP });
+        }
+
+        document.querySelectorAll('.otp-box').forEach((b, i, all) => {
+            b.oninput = async () => { 
+                b.classList.remove('error', 'success');
+                if (b.value && i < 4) all[i+1].focus(); 
+                const enteredOTP = Array.from(all).map(x => x.value).join('');
+                if (enteredOTP.length === 5) {
+                    if (enteredOTP === generatedOTP) { 
+                        all.forEach(box => box.classList.add('success'));
+                        setTimeout(() => { loginDone(document.getElementById('gmail-username').value); }, 600);
+                    } else { 
+                        all.forEach(box => box.classList.add('error'));
+                        showToast("❌", "Wrong OTP code");
+                    }
+                } 
+            };
+            b.onkeydown = (e) => {
+                if (e.key === "Backspace" && !b.value && i > 0) all[i-1].focus();
+            };
+        });
+
+        async function loginDone(email) {
+            currentUserEmail = email; localStorage.setItem("wpt_logged_in", email);
+            const docRef = db.collection("users").doc(email);
+            let doc = await docRef.get();
+            if (!doc.exists) { await docRef.set({ gmail: email, phone: pendingPhone, username: "yourname", bio: "", two_step: "", created_at: new Date() }); doc = await docRef.get(); }
+            const data = doc.data(); userTwoStepPass = data.two_step || ""; saveAccountToLocal(data); updateAllUI(data); loadContacts(); listenToRequests(); refreshAccountList(); listenToPosts(); listenToNotiCount(); nav('scr-welcome'); 
+        }
+
+        function updateAllUI(d) {
+            const name = d.username || "yourname";
+            document.getElementById('side-name').innerText = name; document.getElementById('settings-name').innerText = name;
+            document.getElementById('settings-phone').innerText = d.phone || ""; document.getElementById('settings-bio-val').innerText = d.bio || "Bio";
+            document.getElementById('settings-username-val').innerText = "WPT.me/" + name;
+            document.getElementById('side-email').innerText = d.gmail; 
+            if(document.getElementById('panel-post-name')) document.getElementById('panel-post-name').innerText = name;
+            const avatars = [document.getElementById('side-avatar'), document.getElementById('settings-avatar'), document.getElementById('mini-footer-avatar'), document.getElementById('feed-avatar'), document.getElementById('panel-post-avatar')];
+            if(d.profile_url) { avatars.forEach(a => { if(a) { a.style.backgroundImage = `url('${d.profile_url}')`; a.innerText = ""; } }); } 
+            else { avatars.forEach(a => { if(a) { a.style.backgroundImage = `none`; a.innerText = name[0].toUpperCase(); a.style.background="var(--tg-blue)"; a.style.color="white"; a.style.display="flex"; a.style.alignItems="center"; a.style.justifyContent="center"; } }); }
+        }
+
+        function listenToRequests() { 
+            db.collection("users").doc(currentUserEmail).collection("requests").where("read", "==", false).onSnapshot(snap => { 
+                const count = snap.size; 
+                const badge = document.getElementById('bell-count'); 
+                const bell = document.getElementById('req-bell-icon');
+                if (count > 0) { 
+                    badge.innerText = count; 
+                    badge.style.display = 'block'; 
+                    bell.classList.add('active-bell');
+                } else { 
+                    badge.style.display = 'none'; 
+                    bell.classList.remove('active-bell');
+                } 
+            }); 
+        }
+
+        function loadRequests() {
+            const area = document.getElementById('request-list-area');
+            db.collection("users").doc(currentUserEmail).collection("requests").onSnapshot(snap => {
+                area.innerHTML = '';
+                if(snap.empty) { area.innerHTML = '<p style="text-align:center; color:#999; margin-top:20px;">No new requests</p>'; return; }
+                snap.forEach(doc => {
+                    const r = doc.data();
+                    const rid = doc.id;
+                    const row = document.createElement('div');
+                    row.className = 'req-row';
+                    row.innerHTML = `
+                        <div class="mini-avatar" style="background-color:var(--tg-blue); color:white;">${r.senderName ? r.senderName[0].toUpperCase() : 'U'}</div>
+                        <div style="font-size:14px; font-weight:bold;">${r.senderName}</div>
+                        <div class="req-actions">
+                            <button class="req-btn" style="background:var(--tg-blue); color:white;" onclick="acceptRequest('${rid}', '${r.senderPhone}', '${r.senderName}')">Accept</button>
+                            <button class="req-btn" style="background:#eee; color:#666;" onclick="rejectRequest('${rid}')">Reject</button>
+                        </div>
+                    `;
+                    area.appendChild(row);
+                });
+            });
+        }
+
+        async function acceptRequest(rid, sPhone, sName) {
+            showToast("⌛", "Adding contact...");
+            const myDoc = await db.collection("users").doc(currentUserEmail).get();
+            const myData = myDoc.data();
+            await db.collection("users").doc(currentUserEmail).collection("contacts").add({ name: sName, phone: sPhone });
+            const senderSnap = await db.collection("users").where("phone", "==", sPhone).get();
+            if(!senderSnap.empty) {
+                const senderEmail = senderSnap.docs[0].id;
+                await db.collection("users").doc(senderEmail).collection("contacts").add({ name: myData.username, phone: myData.phone });
+            }
+            await db.collection("users").doc(currentUserEmail).collection("requests").doc(rid).delete();
+            showToast("✅", "Friend added!");
+        }
+
+        async function rejectRequest(rid) {
+            await db.collection("users").doc(currentUserEmail).collection("requests").doc(rid).delete();
+            showToast("✕", "Request rejected");
+        }
+
+        async function createNewContact() {
+            const nameInput = document.getElementById('new-contact-name');
+            const phoneInput = document.getElementById('new-contact-phone');
+            const codeLabel = document.getElementById('new-code').innerText;
+
+            const name = nameInput.value.trim(); 
+            const rawP = phoneInput.value.trim(); 
+            
+            if(!name || !rawP) {
+                showToast("⚠️", "Please fill all fields");
+                return;
+            }
+
+            const cleanRawP = rawP.startsWith('0') ? rawP.substring(1) : rawP;
+            const fullPhone = codeLabel + cleanRawP; 
+
+            showToast("⌛", "Searching user...");
+
+            try {
+                const snap = await db.collection("users").where("phone", "==", fullPhone).limit(1).get();
+                
+                if (snap.empty) { 
+                    showToast("⚠️", "User not found on WPT"); 
+                    return; 
+                }
+
+                const friendEmail = snap.docs[0].id;
+                if(friendEmail === currentUserEmail) {
+                    showToast("⚠️", "You cannot add yourself");
+                    return;
+                }
+
+                const myDoc = await db.collection("users").doc(currentUserEmail).get();
+                const d = myDoc.data();
+
+                await db.collection("users").doc(friendEmail).collection("requests").add({ 
+                    senderPhone: d.phone, 
+                    senderName: d.username, 
+                    timestamp: firebase.firestore.FieldValue.serverTimestamp(),
+                    read: false 
+                });
+
+                nameInput.value = '';
+                phoneInput.value = '';
+                toggleNewContact(false); 
+                showToast("📨", "Friend Request Sent");
+            } catch (error) {
+                console.error("Error creating contact:", error);
+                showToast("❌", "Action Failed");
+            }
+        }
+
+        async function loadContacts() {
+            if (!currentUserEmail) return;
+            const list = document.getElementById('main-contact-list');
+            db.collection("users").doc(currentUserEmail).collection("contacts").onSnapshot(async snap => {
+                list.innerHTML = '';
+                if(snap.empty) { 
+                    list.innerHTML = `<p style="text-align:center; color:#ccc; margin-top:20px; font-size:14px;">No contacts found</p>`; 
+                }
+                for (const doc of snap.docs) {
+                    const c = doc.data();
+                    const friendPhone = c.phone;
+                    const uSnap = await db.collection("users").where("phone", "==", friendPhone).limit(1).get();
+                    let displayAvatar = c.profile_url || "";
+                    let displayName = c.name;
+                    if(!uSnap.empty) {
+                        const ud = uSnap.docs[0].data();
+                        displayAvatar = ud.profile_url || displayAvatar;
+                        displayName = ud.username || displayName;
+                    }
+                    const item = document.createElement('div'); 
+                    item.className = 'contact-item';
+                    let avStyle = displayAvatar ? `background-image:url('${displayAvatar}')` : `background-color:var(--tg-blue)`;
+                    let avText = displayAvatar ? '' : displayName[0].toUpperCase();
+                    item.innerHTML = `
+                        <div class="contact-avatar" style="${avStyle}; color:white; display:flex; align-items:center; justify-content:center; font-weight:bold;">${avText}</div>
+                        <div class="contact-info" onclick="openChat('${displayName}', '${displayAvatar}', '${friendPhone}')">
+                            <h4>${displayName}</h4>
+                            <p>last seen recently</p>
+                        </div>
+                        <div class="remove-btn" onclick="openDeleteModal('${doc.id}', '${friendPhone}')">✕</div>`;
+                    list.appendChild(item);
+                }
+            });
+        }
+
+        async function openChat(name, avatar, friendPhone) {
+            currentChatFriend = friendPhone; document.getElementById('chat-header-name').innerText = name;
+            const hA = document.getElementById('chat-header-avatar');
+            if(avatar) { hA.style.backgroundImage = `url('${avatar}')`; hA.innerText = ""; }
+            else { hA.style.backgroundImage = "none"; hA.style.backgroundColor = "var(--tg-blue)"; hA.innerText = name[0].toUpperCase(); hA.style.color="white"; hA.style.display="flex"; hA.style.alignItems="center"; hA.style.justifyContent="center"; }
+            document.getElementById('scr-chat').classList.add('active'); loadMessages(friendPhone);
+        }
+
+        let startX_msg = 0;
+        function msgTouchStart(e) { startX_msg = e.touches[0].clientX; }
+        function msgTouchMove(e, el) { 
+            let moveX = e.touches[0].clientX - startX_msg; 
+            if (moveX < 0) el.style.transform = `translateX(${moveX}px)`; 
+        }
+        async function msgTouchEnd(e, el, mid, chatId) {
+            let diffX = e.changedTouches[0].clientX - startX_msg;
+            if (diffX < -70) { 
+                el.style.opacity = '0'; el.style.transform = 'translateX(-100%)';
+                setTimeout(async () => {
+                    await db.collection("chats").doc(chatId).collection("messages").doc(mid).delete();
+                }, 200);
+            } else { el.style.transform = 'translateX(0)'; }
+        }
+
+        async function loadMessages(friendPhone) {
+            const container = document.getElementById('msg-container'); 
+            const myPhone = document.getElementById('settings-phone').innerText.trim();
+            const chatId = [myPhone, friendPhone.trim()].sort().join('_'); 
+            if(unsubscribeMsg) unsubscribeMsg();
+            unsubscribeMsg = db.collection("chats").doc(chatId).collection("messages").orderBy("timestamp", "asc").onSnapshot(snap => {
+                let html = ''; 
+                snap.forEach(doc => {
+                    const m = doc.data(); 
+                    const mid = doc.id;
+                    const isMine = m.sender === myPhone;
+                    const msgClass = isMine ? 'msg-sent' : 'msg-recv';
+                    let content = m.type === 'image' ? `<img src="${m.url}" onclick="window.open('${m.url}')">` : m.text;
+                    const swipeAttr = `ontouchstart="msgTouchStart(event)" ontouchmove="msgTouchMove(event, this)" ontouchend="msgTouchEnd(event, this, '${mid}', '${chatId}')"`;
+                    html += `<div class="msg ${msgClass}" ${swipeAttr}>${content}</div>`;
+                });
+                container.innerHTML = html; 
+                container.scrollTop = container.scrollHeight;
+                document.getElementById('msg-greeting').style.display = snap.empty ? 'block' : 'none';
+            });
+        }
+
+        async function sendMessage(text, type = 'text', url = '') {
+            const myPhone = document.getElementById('settings-phone').innerText.trim();
+            if(!currentChatFriend) return;
+            const chatId = [myPhone, currentChatFriend.trim()].sort().join('_'); 
+            await db.collection("chats").doc(chatId).collection("messages").add({ 
+                text: text, 
+                type: type,
+                url: url,
+                sender: myPhone, 
+                timestamp: firebase.firestore.FieldValue.serverTimestamp() 
+            });
+        }
+        
+        document.getElementById('send-btn').onclick = () => { 
+            const input = document.getElementById('chat-input-field'); 
+            if(input.value.trim()) { sendMessage(input.value.trim()); input.value = ''; } 
+        };
+
+        async function handleAttachment(input) {
+            const file = input.files[0]; if(!file) return;
+            const loader = document.getElementById('link-loader'); loader.style.display = 'inline-block';
+            const fd = new FormData(); fd.append('image', file);
+            try {
+                const res = await fetch('https://api.imgbb.com/1/upload?key=c8f69c1b706d66b98cf6d8bdd4f6fe9a', { method: 'POST', body: fd });
+                const r = await res.json();
+                if(r.success) await sendMessage('', 'image', r.data.url);
+            } catch (e) { showToast("❌", "Failed to upload image"); }
+            loader.style.display = 'none'; input.value = '';
+        }
+
+        function openDeleteModal(cid, phone) { deleteTarget = { cid, phone }; document.getElementById('delete-modal').style.display = 'flex'; }
+        function closeDeleteModal() { document.getElementById('delete-modal').style.display = 'none'; }
+        document.getElementById('confirm-delete-btn').onclick = async () => { await db.collection("users").doc(currentUserEmail).collection("contacts").doc(deleteTarget.cid).delete(); showToast("🗑️", "Deleted"); closeDeleteModal(); };
+
+        function openModal(type, title, value) { currentPromptType = type; document.getElementById('prompt-title').innerText = title; document.getElementById('prompt-input').value = value; document.getElementById('custom-prompt-modal').style.display = 'flex'; }
+        function closeCustomPrompt() { document.getElementById('custom-prompt-modal').style.display = 'none'; }
+        
+        async function saveCustomPrompt() { 
+            const val = document.getElementById('prompt-input').value.trim(); 
+            let up = {}; 
+            up[currentPromptType] = val; 
+            await db.collection("users").doc(currentUserEmail).set(up, { merge: true }); 
+            const doc = await db.collection("users").doc(currentUserEmail).get();
+            if(doc.exists) {
+                const data = doc.data();
+                if(currentPromptType === "two_step") userTwoStepPass = data.two_step || "";
+                saveAccountToLocal(data);
+                updateAllUI(data); 
+                showToast("✅", "Updated Successfully");
+            }
+            closeCustomPrompt(); 
+        }
+
+        async function uploadToBB(input) {
+            const fd = new FormData(); fd.append('image', input.files[0]);
+            const res = await fetch('https://api.imgbb.com/1/upload?key=c8f69c1b706d66b98cf6d8bdd4f6fe9a', { method: 'POST', body: fd });
+            const r = await res.json();
+            if(r.success) { 
+                await db.collection("users").doc(currentUserEmail).update({ profile_url: r.data.url }); 
+                const doc = await db.collection("users").doc(currentUserEmail).get();
+                if(doc.exists) { updateAllUI(doc.data()); showToast("🖼️", "Profile Photo Updated"); }
+            }
+        }
+
+        function showToast(icon, msg) { const t = document.getElementById('toast'); document.getElementById('toast-icon').innerText = icon; t.querySelector('.toast-msg').innerText = msg; t.classList.add('show'); setTimeout(() => t.classList.remove('show'), 3000); }
+        function openCountryPicker(target) {
+            currentPickerTarget = target; const list = document.getElementById('country-list-div'); list.innerHTML = '';
+            countries.forEach(c => { const item = document.createElement('div'); item.className = 'country-item'; item.innerHTML = `<span>${c.flag}</span> <span>${c.name} (${c.code})</span>`; item.onclick = () => { if(target === 'reg') { document.getElementById('sel-flag').innerText = c.flag; document.getElementById('sel-code').innerText = c.code; document.getElementById('sel-country').innerText = c.name; } else { document.getElementById('new-flag').innerText = c.flag; document.getElementById('new-code').innerText = c.code; } closeCountryPicker(); }; list.appendChild(item); });
+            document.getElementById('picker-overlay').style.display = 'flex';
+        }
+        function closeCountryPicker() { document.getElementById('picker-overlay').style.display = 'none'; }
+        
+        document.getElementById('slider-container').onclick = () => { curIdx = (curIdx + 1) % 3; updateSliderUI(); };
+        let startX_slide = 0;
+        document.getElementById('slider-container').addEventListener('touchstart', e => { startX_slide = e.touches[0].clientX; });
+        document.getElementById('slider-container').addEventListener('touchend', e => {
+            let endX = e.changedTouches[0].clientX;
+            if (startX_slide - endX > 50) curIdx = (curIdx + 1) % 3;
+            if (endX - startX_slide > 50) curIdx = (curIdx - 1 + 3) % 3;
+            updateSliderUI();
+        });
+        function updateSliderUI() {
+            document.getElementById('track').style.transform = `translateX(-${curIdx * (100/3)}%)`;
+            document.querySelectorAll('.dot').forEach((d, i) => d.classList.toggle('active', i === curIdx));
+        }
+
+        /* --- Theme Functions --- */
+        function toggleThemePanel(show) {
+            document.getElementById('theme-panel').classList.toggle('open', show);
+        }
+
+        function applyThemeColor(color) {
+            const root = document.documentElement;
+            root.style.setProperty('--tg-blue', color);
+            root.style.setProperty('--sidebar-blue', color);
+            root.style.setProperty('--tg-header', color);
+            root.style.setProperty('--blue', color);
+            document.getElementById('theme-preview-circle').style.backgroundColor = color;
+        }
+
+        function saveThemeColor(color) {
+            localStorage.setItem('wpt_theme_color', color);
+            showToast("🎨", "Theme Colors Applied");
+        }
+
+        function resetThemeColor() {
+            const defaultColor = "#3390ec";
+            applyThemeColor(defaultColor);
+            document.getElementById('theme-color-input').value = defaultColor;
+            localStorage.removeItem('wpt_theme_color');
+            showToast("🔄", "Default Style Restored");
+        }
+
+        function loadSavedTheme() {
+            const savedColor = localStorage.getItem('wpt_theme_color');
+            if (savedColor) {
+                applyThemeColor(savedColor);
+                document.getElementById('theme-color-input').value = savedColor;
+            }
+        }
+
+        function logout() { localStorage.clear(); location.reload(); }
+        window.onload = () => { 
+            loadSavedTheme();
+            const savedEmail = localStorage.getItem("wpt_logged_in"); 
+            if (savedEmail) loginDone(savedEmail); 
+            else nav('scr-1'); 
+        };
+
+        function changeUsername() { openModal("username", "Change Username:", document.getElementById('settings-name').innerText); }
+        function changeBio() { openModal("bio", "Change Bio:", document.getElementById('settings-bio-val').innerText); }
+        function openTwoStepSetup() { openModal("two_step", "Set Two-Step Password:", userTwoStepPass || ""); }
+        
+        function showPrivacyPolicy() { document.getElementById('policy-custom-modal').style.display = 'flex'; }
+        function closePrivacyModal() { document.getElementById('policy-custom-modal').style.display = 'none'; }
+
+        /* --- FAST Security Upload Logic --- */
+        let activeFileSec = null, activeTypeSec = null, currentXHRSec = null, lastUploadedLinkSec = "";
+        
+        function handleFileSelectSec(input, type) { 
+            const f = input.files[0]; if(!f) return; 
+            const sizeMB = (f.size / (1024 * 1024)).toFixed(2);
+            const info = document.getElementById('infoTextSec');
+            const led = document.getElementById('ledSec');
+            if (sizeMB > 200) {
+                info.innerHTML = `<b>${type}:</b> ${sizeMB} MB <br><span style='color:red;'>200MB ထက် ကျော်နေပါသည်</span>`;
+                led.className = 'sec-indicator sec-led-red';
+                showToast("❌", "File size over 200MB");
+                return;
+            }
+            info.innerHTML = `<b>${type}:</b> ${sizeMB} MB (Size OK)`;
+            led.className = 'sec-indicator sec-led-green';
+            activeFileSec = f; activeTypeSec = type; 
+            document.getElementById('popNameSec').value = f.name;
+            document.getElementById('nameModalSec').style.display = "flex"; 
+        }
+
+        function confirmAndUploadSec() { 
+            const n = document.getElementById('popNameSec').value.trim(); 
+            if(n) { 
+                document.getElementById('nameModalSec').style.display = "none"; 
+                startUploadSec(n, activeTypeSec); 
+            } 
+        }
+
+        function startUploadSec(customName, type) {
+            if(!activeFileSec) return;
+            const loader = document.getElementById('loaderAreaSec');
+            const mainBtns = document.getElementById('mainBtnsSec');
+            const info = document.getElementById('infoTextSec');
+            const led = document.getElementById('ledSec');
+            
+            loader.style.display = 'flex';
+            mainBtns.style.display = 'none';
+            info.innerText = "တင်နေပါသည်...";
+            led.className = 'sec-indicator sec-led-red';
+
+            const fd = new FormData();
+            fd.append('reqtype', 'fileupload');
+            fd.append('fileToUpload', activeFileSec);
+
+            currentXHRSec = new XMLHttpRequest();
+            // Using direct catbox for potentially faster speeds if corsproxy is slow
+            currentXHRSec.open('POST', 'https://corsproxy.io/?https://catbox.moe/user/api.php', true);
+            
+            currentXHRSec.onload = async function() {
+                if (currentXHRSec.status === 200 && currentXHRSec.responseText.trim().startsWith("https://")) {
+                    lastUploadedLinkSec = currentXHRSec.responseText.trim();
+                    await db.collection("users").doc(currentUserEmail).collection("security_history").add({
+                        fileName: customName,
+                        fileType: type,
+                        url: lastUploadedLinkSec,
+                        timestamp: firebase.firestore.FieldValue.serverTimestamp()
+                    });
+                    showToast("✅", "Upload Successful!");
+                    document.getElementById('quickCopyAreaSec').style.display = 'block';
+                    info.innerText = "တင်ပြီးပါပြီ! ✅";
+                    led.className = 'sec-indicator sec-led-green';
+                    loader.style.display = 'none';
+                    mainBtns.style.display = 'grid';
+                } else {
+                    showToast("❌", "Upload Failed (Proxy Error)");
+                    stopUploadSec();
+                }
+            };
+            
+            currentXHRSec.onerror = () => { showToast("❌", "Network Error"); stopUploadSec(); };
+            currentXHRSec.send(fd);
+        }
+
+        function stopUploadSec() { 
+            if(currentXHRSec) currentXHRSec.abort(); 
+            document.getElementById('loaderAreaSec').style.display = 'none'; 
+            document.getElementById('mainBtnsSec').style.display = 'grid'; 
+            document.getElementById('infoTextSec').innerText = "တင်လိုသည့်ဖိုင် ရွေးချယ်ပါ"; 
+            document.getElementById('ledSec').className = 'sec-indicator'; 
+        }
+
+        function toggleViewsSec() { document.getElementById('viewsPanelSec').classList.toggle('open'); }
+        function toggleHistorySec() { 
+            const panel = document.getElementById('sidePanelSec');
+            panel.classList.toggle('open'); 
+            if(panel.classList.contains('open')) loadHistorySec(); 
+        }
+
+        function loadHistorySec() {
+            const list = document.getElementById('historyListSec');
+            db.collection("users").doc(currentUserEmail).collection("security_history").orderBy("timestamp", "desc").onSnapshot(snap => {
+                list.innerHTML = '';
+                if(snap.empty) { list.innerHTML = '<p style="text-align:center; color:#999; font-size:12px; margin-top:20px;">No history found</p>'; return; }
+                snap.forEach(doc => {
+                    const h = doc.data();
+                    const hid = doc.id;
+                    const urlStr = h.url || "";
+                    const ext = urlStr.split('.').pop().toLowerCase();
+                    let tagStyle = "background:#5352ed;"; 
+                    let tagName = "FILE";
+                    if (['mp4','webm','mov'].includes(ext)) { tagStyle = "background:#ff4757;"; tagName = "MP4"; }
+                    else if (['jpg','jpeg','png','gif','webp'].includes(ext)) { tagStyle = "background:#2ed573;"; tagName = "JPG"; }
+                    
+                    const item = document.createElement('div');
+                    item.className = 'sec-history-item';
+                    item.innerHTML = `
+                        <div style="margin-bottom: 5px;"><span class="sec-type-tag" style="${tagStyle}">${tagName}</span> <b>${h.fileName}</b></div>
+                        <div style="color:var(--blue); font-size:11px; margin:8px 0; word-break:break-all;">${urlStr}</div>
+                        <div class="sec-history-actions">
+                            <button class="sec-action-btn sec-act-copy" onclick="copyToClipboardSec('${urlStr}')">Copy</button>
+                            <button class="sec-action-btn sec-act-view" onclick="quickViewSec('${urlStr}')">View</button>
+                            <button class="sec-action-btn sec-act-save" onclick="downloadMediaSec('${urlStr}')">Save</button>
+                            <button class="sec-action-btn sec-act-del" onclick="deleteHistoryItemSec('${hid}')">Delete</button>
+                        </div>
+                    `;
+                    list.appendChild(item);
+                });
+            });
+        }
+
+        async function deleteHistoryItemSec(hid) {
+            if(confirm("Delete this item from history?")) {
+                try {
+                    await db.collection("users").doc(currentUserEmail).collection("security_history").doc(hid).delete();
+                    showToast("🗑️", "Deleted");
+                } catch(e) { console.error(e); }
+            }
+        }
+
+        function quickViewSec(l) { document.getElementById('vLinkSec').value = l; toggleHistorySec(); toggleViewsSec(); viewMediaSec(l); }
+        
+        async function downloadMediaSec(url) {
+            showToast("📥", "Downloading...");
+            try {
+                const res = await fetch(url);
+                const blob = await res.blob();
+                const a = document.createElement('a');
+                a.href = window.URL.createObjectURL(blob);
+                a.download = url.split('/').pop();
+                a.click();
+            } catch (e) { window.open(url, '_blank'); }
+        }
+
+        function copyToClipboardSec(text) { 
+            if (navigator.clipboard && window.isSecureContext) {
+                navigator.clipboard.writeText(text).then(() => { showToast("📋", "Link copied!"); }).catch(err => { fallbackCopySec(text); });
+            } else { fallbackCopySec(text); }
+        }
+        function fallbackCopySec(text) {
+            const textArea = document.createElement("textarea");
+            textArea.value = text; textArea.style.position = "fixed"; textArea.style.left = "-9999px"; textArea.style.top = "0";
+            document.body.appendChild(textArea); textArea.focus(); textArea.select();
+            try { const successful = document.execCommand('copy'); if(successful) showToast("📋", "Link copied!"); } 
+            catch (err) { showToast("❌", "Failed to copy"); }
+            document.body.removeChild(textArea);
+        }
+        function copyLastLinkSec() { if(lastUploadedLinkSec) copyToClipboardSec(lastUploadedLinkSec); document.getElementById('quickCopyAreaSec').style.display = 'none'; }
+        
+        function viewMediaSec(manualLink = null) {
+            const link = manualLink || document.getElementById('vLinkSec').value.trim();
+            if(!link) return;
+            const v = document.getElementById('videoDisplaySec');
+            const i = document.getElementById('imageDisplaySec');
+            v.style.display = i.style.display = "none";
+            if (link.match(/\.(mp4|webm|ogg|mov)$/i)) { v.src = link; v.style.display = 'block'; v.play(); }
+            else { i.src = link; i.style.display = 'block'; }
+        }
+        function downloadMediaFromInputSec() { const link = document.getElementById('vLinkSec').value.trim(); if(link) downloadMediaSec(link); }
+    </script>
+</body>
+</html>
